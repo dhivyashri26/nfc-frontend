@@ -28,7 +28,7 @@ export default function PlansPage() {
   const deckRef = useRef(null);
 
   useEffect(() => {
-    fetch('https://nfc-backend-9c1q.onrender.com/api/plans')
+    fetch(import.meta.env.VITE_API_BASE_URL)
       .then(res => (res.ok ? res.json() : Promise.reject(res.statusText)))
       .then(data => setPlans([FREE_PLAN, ...data]))
       .catch(setError)

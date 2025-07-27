@@ -12,7 +12,7 @@ function ContactForm({ profileId, onSuccess }) {
     setIsSubmitting(true);
 
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL || 'https://nfc-dashboard-server.onrender.com'}/api/contact/exchange/${profileId}`);
+      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/api/contact/exchange/${profileId}`);
       if (response.status === 200) {
         setStatus('success');
         if (onSuccess) onSuccess();

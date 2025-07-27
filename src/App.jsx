@@ -12,7 +12,7 @@ import HomePage from './pages/HomePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardInsightsPage from './pages/DashboardInsightsPage';
 import AdminProfilePage from './pages/AdminProfilePage';
-import keepServerAwake from './utils/keepServerAwake';
+//import keepServerAwake from './utils/keepServerAwake';
 import PlansPage from './pages/PlansPage';
 
 // Theme context for dark/light mode
@@ -49,7 +49,6 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
-  keepServerAwake();
 
   return (
     <ThemeProvider>
