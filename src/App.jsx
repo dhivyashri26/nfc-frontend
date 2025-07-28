@@ -14,6 +14,7 @@ import DashboardInsightsPage from './pages/DashboardInsightsPage';
 import AdminProfilePage from './pages/AdminProfilePage';
 //import keepServerAwake from './utils/keepServerAwake';
 import PlansPage from './pages/PlansPage';
+import FAQPage from './pages/FAQPage';
 
 // Theme context for dark/light mode
 const ThemeContext = createContext();
@@ -63,6 +64,9 @@ export default function App() {
           <Route path="/p/:activationCode" element={<PublicProfilePage />} />
           <Route path="/" element={<HomePage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* FAQ page */}
+          <Route path="/faq" element={<FAQPage />} />
 
           {/* Protected customer dashboard */}
           <Route

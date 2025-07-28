@@ -147,6 +147,49 @@ function ContactUsCTA() {
   );
 }
 
+function FAQCTA() {
+  const navigate = useNavigate();
+  const [hovered, setHovered] = useState(false);
+  const spring = useSpring({
+    scale: hovered ? 1.04 : 1,
+    boxShadow: hovered
+      ? '0 8px 32px 0 rgba(212,175,55,0.18)'
+      : '0 4px 16px 0 rgba(212,175,55,0.10)',
+    config: config.wobbly,
+  });
+  const handleClick = () => {
+    navigate('/faq');
+    setTimeout(() => {
+      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' });
+    }, 0);
+  };
+  return (
+    <animated.div
+      style={spring}
+      className="relative bg-gradient-to-br from-[#23272f]/80 to-[#181a20]/80 border border-[#D4AF37]/30 rounded-2xl p-6 sm:p-8 flex flex-col items-center shadow-2xl w-full max-w-xl mx-auto text-center mt-8 cursor-pointer transition-all"
+      tabIndex={0}
+      aria-label="FAQ Card"
+      role="region"
+      onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+    >
+      <div className="flex items-center justify-center mb-3">
+        <span className="text-2xl font-bold text-[#D4AF37]">Frequently Asked Questions (FAQs)</span>
+      </div>
+      <p className="text-gray-300 text-base mb-2">Check out our most frequently asked questions about Comma Cards, security, compatibility, analytics, and more.</p>
+      <button
+        className="mt-2 px-6 py-2 rounded-full bg-[#D4AF37] text-black font-bold shadow hover:bg-[#b4972a] transition"
+        tabIndex={-1}
+      >
+        View FAQ
+      </button>
+    </animated.div>
+  );
+}
+
 export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -216,18 +259,24 @@ export default function HomePage() {
                 className="bg-black w-full h-full rounded-2xl sm:rounded-3xl flex flex-col justify-center items-center"
               >
                 <div className="flex justify-center mt-2 mb-2 sm:mt-1 sm:mb-1">
-                  <svg
-                    width="32" height="32" viewBox="0 0 32 32"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="block"
-                    style={{ display: 'block' }}
+                  <span
+                    style={{
+                      color: '#D4AF37',
+                      fontSize: '4.2rem',
+                      fontWeight: 900,
+                      //fontFamily: 'Quicksand, Nunito, Rubik, Arial Rounded MT Bold, Arial, sans-serif',
+                      fontFamily: 'California FB',
+                      lineHeight: 1,
+                      display: 'block',
+                      marginTop: '-3.5rem', // move much higher up
+                      marginBottom: '1.2rem', // push content down
+                      letterSpacing: '-0.12em',
+                      textShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                      borderRadius: '50%',
+                    }}
                   >
-                    <path
-                      d="M16 6c4 0 6 2.5 6 6 0 2.5-1.5 4.5-4 5.5 1.5 1 2.5 2.5 2.5 4.5 0 2-1.5 3-3 3s-3-1-3-3c0-2 1-3.5 2.5-4.5C11.5 16.5 10 14.5 10 12c0-3.5 2-6 6-6z"
-                      fill="#D4AF37"
-                    />
-                  </svg>
+                    ,
+                  </span>
                 </div>
 
                 <div className="text-center space-y-2 sm:space-y-3 w-full">
@@ -337,8 +386,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div ref={contactRef} id="contact" className="mt-20 flex justify-center px-4">
+          <div ref={contactRef} id="contact" className="mt-20 flex flex-col items-center gap-6 px-4">
             <ContactUsCTA />
+            <FAQCTA />
           </div>
         </section>
       </main>
