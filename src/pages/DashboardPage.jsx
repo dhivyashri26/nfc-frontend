@@ -992,10 +992,10 @@ export default function DashboardPage() {
       {/* Footer Branding */}
       <footer className="w-full flex flex-col items-center justify-center mt-10 mb-4">
         <div className="w-full flex flex-col items-center max-w-xs">
-          <div className="text-xl font-bold text-gray-700 dark:text-gray-300 tracking-tight">
-            comma<span className="opacity-70">Cards</span>
+          <div className="text-2xl font-extrabold text-gray-700 dark:text-gray-300 tracking-tight" style={{ fontFamily: 'Garet, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            COMMA CARDS
           </div>
-          <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1 mb-2">
+          <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1 mb-2" style={{ fontFamily: 'SpaceMono, monospace', fontSize: '1rem', letterSpacing: '0.15em' }}>
             CONTINUED RELATIONSHIPS
           </div>
         </div>

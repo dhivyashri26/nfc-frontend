@@ -699,13 +699,14 @@ export default function PublicProfilePage() {
           </div>
         </animated.div>
       </div>
-
+      
+     
       {/* Branding Footer */}
       <footer className="w-full flex flex-col items-center justify-center mt-auto py-4">
-        <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
-          comma<span className="opacity-70">Cards</span>
+        <div className="text-xl font-bold text-gray-700 dark:text-gray-200" style={{ fontFamily: 'Garet, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          COMMA CARDS
         </div>
-        <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1">
+        <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1" style={{ fontFamily: 'SpaceMono, monospace', fontSize: '0.8rem', letterSpacing: '0.15em' }}>
           CONTINUED RELATIONSHIPS
         </div>
         <a

@@ -107,7 +107,7 @@ function ContactUsCTA() {
         Have questions or need help?
       </h2>
       <p className="text-gray-300 text-sm sm:text-base mb-6">
-        Our team is here to help you get the most out of your commaCard experience. Reach out anytime!
+        Our team is here to help you get the most out of your COMMA, experience. Reach out anytime!
       </p>
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full justify-center">
         <a
@@ -179,7 +179,7 @@ function FAQCTA() {
       <div className="flex items-center justify-center mb-3">
         <span className="text-2xl font-bold text-[#D4AF37]">Frequently Asked Questions (FAQs)</span>
       </div>
-      <p className="text-gray-300 text-base mb-2">Check out our most frequently asked questions about Comma Cards, security, compatibility, analytics, and more.</p>
+      <p className="text-gray-300 text-base mb-2" style={{ fontFamily: 'Garet, sans-serif' }}>Check out our most frequently asked questions about COMMA,, security, compatibility, analytics, and more.</p>
       <button
         className="mt-2 px-6 py-2 rounded-full bg-[#D4AF37] text-black font-bold shadow hover:bg-[#b4972a] transition"
         tabIndex={-1}
@@ -231,9 +231,9 @@ export default function HomePage() {
     <div className="bg-black text-gray-100 flex flex-col min-h-screen relative">
       <div className="background-glow" />
 
-      <header className="container mx-auto flex justify-between items-center px-4 py-4 z-10">
-        <div className="text-2xl font-extrabold text-gray-200">
-          comma<span className="text-[#D4AF37]">Cards</span>
+      <header className="container mx-auto flex justify-between items-center px-4 pt-12 pb-4 z-10">
+        <div className="text-2xl font-medium text-gray-200 text-center w-full" style={{ fontFamily: 'Garet, sans-serif', letterSpacing: '0.19em' }}>
+          COMMA
         </div>
       </header>
 
@@ -265,7 +265,7 @@ export default function HomePage() {
                       fontSize: '4.2rem',
                       fontWeight: 900,
                       //fontFamily: 'Quicksand, Nunito, Rubik, Arial Rounded MT Bold, Arial, sans-serif',
-                      fontFamily: 'California FB',
+                      fontFamily: 'Garet',
                       lineHeight: 1,
                       display: 'block',
                       marginTop: '-3.5rem', // move much higher up
@@ -280,10 +280,10 @@ export default function HomePage() {
                 </div>
 
                 <div className="text-center space-y-2 sm:space-y-3 w-full">
-                  <animated.h1 style={trail[0]} className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-100 w-full">
+                  <animated.h1 style={{...trail[0], fontFamily: 'SpaceMono, monospace'}} className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-100 w-full">
                     Continued Relationships,
                   </animated.h1>
-                  <animated.p style={trail[1]} className="text-base sm:text-lg md:text-xl text-gray-300 max-w-2xl mx-auto w-full">
+                  <animated.p style={{...trail[1], fontFamily: 'Garet, sans-serif'}} className="text-base sm:text-lg md:text-xl text-gray-300 max-w-2xl mx-auto w-full">
                     Tap your Comma card to connect instantly and continue valuable conversations,
                   </animated.p>
                 </div>
@@ -325,9 +325,9 @@ export default function HomePage() {
 
         <section className="container mx-auto py-16 space-y-12 px-4">
           <div className="text-center space-y-4 px-4">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-100">What is Comma?</h2>
-            <p className="text-gray-400 max-w-2xl mx-auto">
-              commaCards are smart business cards powered by NFC. Tap your card to instantly share contact details,
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-100" style={{ fontFamily: 'Garet, sans-serif' }}>What is a Comma Card?</h2>
+            <p className="text-gray-400 max-w-2xl mx-auto" style={{ fontFamily: 'Garet, sans-serif' }}>
+              A Comma Card is a smart business card powered by NFC. Tap your card to instantly share contact details,
               social links and more, making follow-ups effortless.
             </p>
           </div>
@@ -365,7 +365,7 @@ export default function HomePage() {
               <InteractiveCard
                 icon={<span className="font-bold text-3xl">1</span>}
                 title="Get Your Card"
-                description="Order your commaCard and receive it at your doorstep. Setup is quick and easy."
+                description="Order your COMMA, and receive it at your doorstep. Setup is quick and easy."
                 className="animate-scroll-fade-up"
                 style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}
               />
@@ -393,8 +393,11 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="container mx-auto py-4 text-center text-sm text-gray-500 z-10">
-        &copy; {new Date().getFullYear()} Comma — Continued Relationships.
+      <footer className="container mx-auto py-4 text-sm text-gray-500 z-10 flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center">
+          <span style={{ fontFamily: 'Garet, sans-serif', fontWeight: 600, fontSize: '1.25rem', letterSpacing: '0.04em', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>&copy; {new Date().getFullYear()} COMMA CARDS</span>
+          <span style={{ fontFamily: 'SpaceMono, monospace', fontSize: '0.78rem', letterSpacing: '0.19em', textTransform: 'uppercase', marginLeft: '2.5em', display: 'block', textAlign: 'center' }}>Continued Relationships,</span>
+        </div>
       </footer>
     </div>
   );
