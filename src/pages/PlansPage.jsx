@@ -1,3 +1,5 @@
+// src/pages/PlansPage.jsx
+
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -28,10 +30,20 @@ export default function PlansPage() {
   const deckRef = useRef(null);
 
   useEffect(() => {
-    fetch(import.meta.env.VITE_API_BASE_URL)
-      .then(res => (res.ok ? res.json() : Promise.reject(res.statusText)))
-      .then(data => setPlans([FREE_PLAN, ...data]))
-      .catch(setError)
+    const url = `${import.meta.env.VITE_API_BASE_URL}/api/plans`; 
+    fetch(url)
+      .then(res =>
+        res.ok
+          ? res.json()
+          : Promise.reject(new Error(`Server responded ${res.status}: ${res.statusText}`))
+      )
+      .then(data => {
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid plans format received from server');
+        }
+        setPlans([FREE_PLAN, ...data]);
+      })
+      .catch(err => setError(err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -50,7 +62,7 @@ export default function PlansPage() {
     setTooltip({
       content,
       x: rect.left + rect.width / 2,
-      y: rect.top - 8
+      y: rect.top - 8,
     });
   };
   const hideTooltip = () => setTooltip(null);
@@ -63,8 +75,21 @@ export default function PlansPage() {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-screen text-white">Loading…</div>;
-  if (error)   return <div className="flex items-center justify-center h-screen text-red-400">Error: {error}</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen text-white">
+        Loading…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen text-red-400">
+        Error: {error.message || 'Something went wrong'}
+      </div>
+    );
+  }
 
   const offsets = [-140, -45, 45, 140];
 
@@ -72,10 +97,14 @@ export default function PlansPage() {
     <div className="relative bg-gradient-to-br from-gray-900 via-black to-gray-800 min-h-screen text-white py-16 px-4">
       {/* Header */}
       <div className="max-w-4xl mx-auto text-center mb-16">
-        <h1 className="text-5xl font-bold text-[#D4AF37] mb-4">Choose Your Plan</h1>
-        <p className="text-gray-400 mb-6">Find the perfect fit for your network.</p>
+        <h1 className="text-5xl font-bold text-[#D4AF37] mb-4">
+          Choose Your Plan
+        </h1>
+        <p className="text-gray-400 mb-6">
+          Find the perfect fit for your network.
+        </p>
         <div className="inline-flex rounded-full bg-white/10 backdrop-blur-md p-1">
-          {['monthly','quarterly'].map(cycle => (
+          {['monthly', 'quarterly'].map(cycle => (
             <button
               key={cycle}
               onClick={() => setBillingCycle(cycle)}
@@ -85,7 +114,7 @@ export default function PlansPage() {
                   : 'text-gray-300 hover:bg-white/20'
               }`}
             >
-              {cycle==='monthly'?'Monthly':'Quarterly (free 1m)'}
+              {cycle === 'monthly' ? 'Monthly' : 'Quarterly (free 1m)'}
             </button>
           ))}
         </div>
@@ -113,7 +142,7 @@ export default function PlansPage() {
               style={{ transformOrigin: 'bottom left', zIndex: z }}
               whileHover={{
                 y: -5,
-                boxShadow: '0 8px 24px rgba(212,175,48,0.6)'
+                boxShadow: '0 8px 24px rgba(212,175,48,0.6)',
               }}
               whileTap={{ scale: 0.97 }}
               onClick={e => {
@@ -130,18 +159,34 @@ export default function PlansPage() {
                   POPULAR
                 </div>
               )}
-              <h3 className={`text-lg font-bold ${plan.id==='free'?'text-white':'text-yellow-400'}`}>
+
+              <h3
+                className={`text-lg font-bold ${
+                  plan.id === 'free' ? 'text-white' : 'text-yellow-400'
+                }`}
+              >
                 {plan.name}
               </h3>
+
               <p className="mt-2 text-3xl font-semibold text-white">
                 ₹{plan.prices[billingCycle]}
-                <span className="text-sm text-gray-400">/{billingCycle==='monthly'?'mo':'3 mo'}</span>
+                <span className="text-sm text-gray-400">
+                  /{billingCycle === 'monthly' ? 'mo' : '3 mo'}
+                </span>
               </p>
-              {plan.tagline && <p className="text-gray-400 text-sm italic mb-4">{plan.tagline}</p>}
+
+              {plan.tagline && (
+                <p className="text-gray-400 text-sm italic mb-4">
+                  {plan.tagline}
+                </p>
+              )}
 
               <ul className="flex-1 overflow-y-auto space-y-2 text-sm text-gray-300 pr-2">
-                {plan.benefits?.map((b, idx) => (
-                  <li key={idx} className="relative flex items-start gap-2 overflow-visible">
+                {plan.benefits.map((b, idx) => (
+                  <li
+                    key={idx}
+                    className="relative flex items-start gap-2 overflow-visible"
+                  >
                     <span className="mt-1">•</span>
                     <span>{b.title}</span>
                     {b.detail && (
@@ -164,14 +209,18 @@ export default function PlansPage() {
               <button
                 onClick={() => onSubscribe(plan.id)}
                 className={`mt-4 py-2 rounded-full font-semibold transition-all ${
-                  plan.id==='free'
+                  plan.id === 'free'
                     ? 'bg-white text-black hover:bg-gray-100'
                     : 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-black hover:shadow-lg'
                 }`}
               >
-                {plan.id==='free'
-                  ? isSel ? 'Free Plan Selected' : 'Select Free Plan'
-                  : `Start ${plan.name} — ₹${plan.prices[billingCycle]}/${billingCycle==='monthly'?'mo':'3 mo'}`}
+                {plan.id === 'free'
+                  ? isSel
+                    ? 'Free Plan Selected'
+                    : 'Select Free Plan'
+                  : `Start ${plan.name} — ₹${plan.prices[billingCycle]}/${
+                      billingCycle === 'monthly' ? 'mo' : '3 mo'
+                    }`}
               </button>
             </motion.div>
           );
@@ -179,24 +228,25 @@ export default function PlansPage() {
       </div>
 
       {/* Tooltip Portal */}
-      {tooltip && ReactDOM.createPortal(
-        <div
-          style={{
-            position: 'fixed',
-            top: tooltip.y,
-            left: tooltip.x,
-            transform: 'translateX(-50%) translateY(-110%)',
-            zIndex: 2000,
-            pointerEvents: 'none'
-          }}
-        >
-          <div className="bg-gray-900 text-white text-sm rounded-md px-4 py-2 shadow-2xl max-w-md text-center opacity-100">
-            {tooltip.content}
-          </div>
-          <div className="w-4 h-4 bg-gray-900 rotate-45 mx-auto -mt-1" />
-        </div>,
-        document.body
-      )}
+      {tooltip &&
+        ReactDOM.createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              top: tooltip.y,
+              left: tooltip.x,
+              transform: 'translateX(-50%) translateY(-110%)',
+              zIndex: 2000,
+              pointerEvents: 'none',
+            }}
+          >
+            <div className="bg-gray-900 text-white text-sm rounded-md px-4 py-2 shadow-2xl max-w-md text-center">
+              {tooltip.content}
+            </div>
+            <div className="w-4 h-4 bg-gray-900 rotate-45 mx-auto -mt-1" />
+          </div>,
+          document.body
+        )}
 
       {/* Disclaimers */}
       <div className="max-w-7xl mx-auto mt-12 pt-8 text-center text-xs text-gray-400">
