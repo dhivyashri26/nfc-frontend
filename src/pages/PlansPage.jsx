@@ -1,23 +1,27 @@
+// Hardcoded Free plan
+const FREE_PLAN = {
+  id: 'free',
+  name: 'Free',
+  prices: { monthly: 0, quarterly: 0 },
+  tagline: 'Get started with the basics',
+  benefits: [
+    {
+      title: 'Basic Digital Profile',
+      detail: 'Showcase your name, organization, phone, email, and location.'
+    },
+    {
+      title: 'Insights CTA',
+      detail: 'Upgrade to unlock profile advanced profiling, analytics, insights.'
+    }
+  ],
+  ctaLabel: 'Start Free'
+};
 // src/pages/PlansPage.jsx
 
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-
-const FREE_PLAN = {
-  id: 'free',
-  name: 'Free Plan',
-  prices: { monthly: 0, quarterly: 0 },
-  tagline: 'Perfect for individuals just starting out',
-  benefits: [
-    { title: 'Shareable public profile with basic details' },
-    { title: 'Tap to share phone & LinkedIn' },
-    { title: 'Access insights like top-tapped link' },
-    { title: 'No expiry — use forever' },
-  ],
-  featured: false,
-};
 
 export default function PlansPage() {
   const [plans, setPlans] = useState([]);
@@ -29,23 +33,23 @@ export default function PlansPage() {
   const navigate = useNavigate();
   const deckRef = useRef(null);
 
-  useEffect(() => {
-    const url = `${import.meta.env.VITE_API_BASE_URL}/api/plans`; 
-    fetch(url)
-      .then(res =>
-        res.ok
-          ? res.json()
-          : Promise.reject(new Error(`Server responded ${res.status}: ${res.statusText}`))
-      )
-      .then(data => {
-        if (!Array.isArray(data)) {
-          throw new Error('Invalid plans format received from server');
-        }
-        setPlans([FREE_PLAN, ...data]);
-      })
-      .catch(err => setError(err))
-      .finally(() => setLoading(false));
-  }, []);
+useEffect(() => {
+  const url = `${import.meta.env.VITE_API_BASE_URL}/api/plans`;
+  fetch(url)
+    .then(res =>
+      res.ok
+        ? res.json()
+        : Promise.reject(new Error(`Server responded ${res.status}: ${res.statusText}`))
+    )
+    .then(data => {
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid plans format received from server');
+      }
+      setPlans([FREE_PLAN, ...data]);
+    })
+    .catch(err => setError(err))
+    .finally(() => setLoading(false));
+}, []);
 
   useEffect(() => {
     function handleOutside(e) {

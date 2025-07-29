@@ -56,12 +56,20 @@ const ContactRow = memo(function ContactRow({ icon, label, value, href, onCopy }
   );
 });
 
+
 // Subscription-based field restrictions
 const PLAN_FIELDS = {
+  Free: ['name', 'phone', 'ownerEmail', 'linkedin'],
   Novice: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin'],
   Corporate: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin', 'industry', 'website', 'calendlyLink'],
   Elite: [] // All fields available
 };
+
+function isFieldAllowed(field, plan) {
+  if (!plan || plan === 'Elite') return true;
+  if (PLAN_FIELDS[plan]) return PLAN_FIELDS[plan].includes(field);
+  return false;
+}
 
 const ALL_FIELDS = [
   { key: 'name', label: 'Name', type: 'text', placeholder: 'e.g. Jane Doe' },
@@ -403,11 +411,11 @@ const CardContent = memo(function CardContent({
         <div className="px-6 pt-4 pb-6 space-y-4 text-left">
           {/* Render fields based on subscription plan */}
           {ALL_FIELDS.map(({ key, label, type, placeholder }) => {
-            // Normalize plan string to match PLAN_FIELDS keys
-            const normalizedPlan = (profile?.subscription?.plan && PLAN_FIELDS[profile.subscription.plan]) ? profile.subscription.plan : 'Novice';
-            const isElite = profile?.subscription?.plan === 'Elite';
-            const isAllowed = isElite || PLAN_FIELDS[normalizedPlan]?.includes(key);
-            if (isAllowed) {
+          // Normalize plan string to match PLAN_FIELDS keys
+          const plan = profile?.subscription?.plan || 'Free';
+          const isElite = plan === 'Elite';
+          const isAllowed = isElite || isFieldAllowed(key, plan);
+          if (isAllowed) {
               // Render normal input field
               if (type === 'select') {
                 return (
@@ -628,14 +636,29 @@ export default function DashboardPage() {
   // Save edits
   const saveProfile = useCallback(async () => {
     try {
-      await axios.put(`${API}/api/profile/${profileId}`, form);
+      const plan = profile?.subscription?.plan || 'Free';
+      let allowedForm = { ...form };
+      if (plan === 'Free') {
+        // Only send allowed fields for Free plan
+        allowedForm = Object.keys(form)
+          .filter(key => PLAN_FIELDS.Free.includes(key))
+          .reduce((obj, key) => {
+            obj[key] = form[key];
+            return obj;
+          }, {});
+        // Social links: only linkedin
+        if (form.socialLinks && form.socialLinks.linkedin) {
+          allowedForm.socialLinks = { linkedin: form.socialLinks.linkedin };
+        }
+      }
+      await axios.put(`${API}/api/profile/${profileId}`, allowedForm);
       setProfile(form);
       setEditMode(false);
       setMessage('Profile saved!');
     } catch {
       setMessage('Save failed');
     }
-  }, [API, profileId, form]);
+  }, [API, profileId, form, profile]);
 
   // Upload files
   const uploadFile = useCallback(

@@ -28,10 +28,27 @@ import ContactForm from '../components/ContactForm';
 
 // Subscription-based field restrictions
 const PLAN_FIELDS = {
+  Free: ['name', 'organization', 'phone', 'email', 'location'],
   Novice: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin'],
   Corporate: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin', 'industry', 'website', 'calendlyLink'],
   Elite: [] // All fields available
 };
+// Helper to check if a field is allowed for the user's plan
+function isFieldAllowed(field, plan) {
+  if (!plan || plan === 'Elite') return true;
+  if (PLAN_FIELDS[plan]) return PLAN_FIELDS[plan].includes(field);
+  return false;
+}
+// CTA component for upgrade
+function InsightsUpgradeCTA() {
+  return (
+    <div className="flex flex-col items-center justify-center p-8 bg-yellow-50 dark:bg-yellow-900 rounded-xl shadow-lg mt-6">
+      <h3 className="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-2">Upgrade to unlock profile analytics and insights</h3>
+      <p className="text-sm text-yellow-700 dark:text-yellow-100 mb-4">Get access to analytics and advanced features by upgrading your plan.</p>
+      <a href="/upgrade" className="px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-400 to-yellow-600 text-white font-semibold shadow hover:from-yellow-500 hover:to-yellow-700">Upgrade Now</a>
+    </div>
+  );
+}
 
 // Reusable ContactRow component
 function ContactRow({ icon, label, value, href, onCopy, isTopLink }) {
@@ -110,6 +127,8 @@ export default function PublicProfilePage() {
   const [msg, setMsg] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [insights, setInsights] = useState(null);
+  const [insights403, setInsights403] = useState(false);
+  const [insights403Msg, setInsights403Msg] = useState('');
   const [qrType, setQrType] = useState(() => localStorage.getItem('qrType') || 'url');
 
   // Contact form state
@@ -149,21 +168,35 @@ export default function PublicProfilePage() {
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    Promise.all([
-      axios.get(`${API}/api/public/${activationCode}`),
-      axios.get(`${API}/api/public/${activationCode}/insights`).catch(() => null)
-    ]).then(([profileRes, insightsRes]) => {
-      if (!isMounted) return;
-      setProfile(profileRes.data);
-      setInsights(insightsRes ? insightsRes.data : null);
-    }).catch(() => {
-      if (!isMounted) return;
-      setProfile(null);
-      setInsights(null);
-    }).finally(() => {
-      if (!isMounted) return;
-      setLoading(false);
-    });
+    axios.get(`${API}/api/public/${activationCode}`)
+      .then(profileRes => {
+        if (!isMounted) return;
+        setProfile(profileRes.data);
+        // Fetch insights separately to handle 403
+        axios.get(`${API}/api/public/${activationCode}/insights`).then(insightsRes => {
+          if (!isMounted) return;
+          setInsights(insightsRes.data);
+          setInsights403(false);
+          setInsights403Msg('');
+        }).catch(err => {
+          if (!isMounted) return;
+          if (err.response?.status === 403 && (err.response.data?.cta || (typeof err.response.data?.message === 'string' && err.response.data.message.toLowerCase().includes('upgrade')))) {
+            setInsights403(true);
+            setInsights403Msg(err.response.data?.message || 'Upgrade to unlock profile analytics and insights.');
+          } else {
+            setInsights(null);
+          }
+        });
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setProfile(null);
+        setInsights(null);
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setLoading(false);
+      });
     return () => { isMounted = false; };
   }, [activationCode, API]);
 
@@ -267,7 +300,9 @@ export default function PublicProfilePage() {
   const totalLinkTaps = insights?.totalLinkTaps;
 
   // Update isElite logic
-  const isElite = profile?.subscription?.plan === 'Elite' || insights?.subscription?.plan === 'Elite';
+  const plan = profile?.subscription?.plan || 'Free';
+  const isElite = plan === 'Elite';
+  const isFree = plan === 'Free';
 
   // Download vCard helper
   const downloadVCard = async () => {
@@ -306,7 +341,8 @@ export default function PublicProfilePage() {
   // Card content JSX
   const CardContent = () => (
     <>
-      {/* Insights Section - removed from public profile */}
+      {/* Insights Section (show CTA if 403) */}
+      {insights403 && <InsightsUpgradeCTA />}
       {/* Theme toggle */}
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
@@ -352,7 +388,7 @@ export default function PublicProfilePage() {
           {title && <p className="mt-0 text-base font-medium text-gray-700 dark:text-gray-300">{title}</p>}
           {subtitle && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>}
           {/* Industry */}
-          {industry && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('industry')) && (
+          {industry && (isElite || isFieldAllowed('industry', plan)) && (
             <div className="flex justify-center mt-2">
               <span className="px-3 py-1 rounded-lg bg-gradient-to-r from-blue-400 via-blue-600 to-blue-800 text-white text-xs font-semibold shadow-lg border border-blue-300 dark:border-blue-700 tracking-wide">
                 {industry}
@@ -360,7 +396,7 @@ export default function PublicProfilePage() {
             </div>
           )}
           {/* Tags */}
-          {tags.length > 0 && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('tags')) && (
+          {tags.length > 0 && (isElite || isFieldAllowed('tags', plan)) && (
             <div className="flex flex-wrap justify-center gap-1 mt-2">
               {tags.map(t => (
                 <span
@@ -384,7 +420,7 @@ export default function PublicProfilePage() {
             </div>
           )}
           {/* Location */}
-          {location && (isElite) && (
+          {location && (isElite || isFieldAllowed('location', plan)) && (
             <div className="flex justify-center mt-2">
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`}
@@ -448,7 +484,7 @@ export default function PublicProfilePage() {
             </a>
           )}
           {/* Phone */}
-          {phone && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('phone')) && (
+          {phone && (isElite || isFieldAllowed('phone', plan)) && (
             <a
               href={`tel:${phone}`}
               target="_blank"
@@ -472,7 +508,7 @@ export default function PublicProfilePage() {
             </a>
           )}
           {/* Website */}
-          {website && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('website')) && (
+          {website && (isElite || isFieldAllowed('website', plan)) && (
             <a
               href={website.startsWith('http') ? website : `https://${website}`}
               target="_blank"
@@ -523,7 +559,7 @@ export default function PublicProfilePage() {
           )} */}
 
           {/* Instagram */}
-          {socialLinks.instagram && (isElite) && (
+          {socialLinks.instagram && (isElite || isFieldAllowed('instagram', plan)) && (
             <a
               href={`https://instagram.com/${socialLinks.instagram}`}
               target="_blank"
@@ -548,7 +584,7 @@ export default function PublicProfilePage() {
             </a>
           )}
           {/* LinkedIn */}
-          {socialLinks.linkedin && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('linkedin')) && (
+          {socialLinks.linkedin && (isElite || isFieldAllowed('linkedin', plan)) && (
             <a
               href={`https://linkedin.com/in/${socialLinks.linkedin}`}
               target="_blank"
@@ -573,7 +609,7 @@ export default function PublicProfilePage() {
             </a>
           )}
           {/* Twitter */}
-          {socialLinks.twitter && (isElite) && (
+          {socialLinks.twitter && (isElite || isFieldAllowed('twitter', plan)) && (
             <a
               href={`https://twitter.com/${socialLinks.twitter}`}
               target="_blank"
@@ -600,7 +636,7 @@ export default function PublicProfilePage() {
         </div>
 
         {/* Calendly
-        {calendlyLink && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('calendlyLink')) && (
+        {calendlyLink && (isElite || isFieldAllowed('calendlyLink', plan)) && (
             <a href={calendlyLink.startsWith('http') ? calendlyLink : `https://${calendlyLink}`}target="_blank"
             rel="noopener noreferrer" onClick={() => postLinkTap(calendlyLink.startsWith('http') ? calendlyLink : `https://${calendlyLink}`)}
             className="block w-full px-4 py-3 rounded-lg text-sm font-semibold tracking-wide mb-2 shadow border transition flex items-center justify-between gap-2 hover:scale-[1.025] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"

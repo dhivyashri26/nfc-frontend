@@ -5,7 +5,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { FaArrowLeft, FaExchangeAlt, FaDownload, FaLink, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 
 function AdminSubscriptionSetter({ profileId, currentSubscription, onSuccess }) {
-  const [plan, setPlan] = useState(currentSubscription?.plan || 'Novice');
+  const [plan, setPlan] = useState((currentSubscription?.plan || 'novice').toLowerCase());
   const [cycle, setCycle] = useState(currentSubscription?.cycle || 'monthly');
   const [activatedAt, setActivatedAt] = useState(currentSubscription?.activatedAt ? currentSubscription.activatedAt.slice(0, 10) : '');
   const [saving, setSaving] = useState(false);
@@ -20,12 +20,11 @@ function AdminSubscriptionSetter({ profileId, currentSubscription, onSuccess }) 
       await axios.put(
         `${import.meta.env.VITE_API_BASE_URL}/api/admin-bs1978av1123ss2402/profile/${profileId}/subscription`,
         {
-          plan,
+          plan: plan.toLowerCase(),
           cycle,
           activatedAt: activatedAt || undefined
         }
       );
-    
       setSuccess('Subscription updated!');
       if (onSuccess) onSuccess();
     } catch (err) {
@@ -41,9 +40,10 @@ function AdminSubscriptionSetter({ profileId, currentSubscription, onSuccess }) 
         <label className="text-gray-300">
           Plan:
           <select value={plan} onChange={e => setPlan(e.target.value)} className="ml-2 px-2 py-1 rounded bg-gray-900 text-white">
-            <option value="Novice">Novice</option>
-            <option value="Corporate">Corporate</option>
-            <option value="Elite">Elite</option>
+            <option value="free">Free</option>
+            <option value="novice">Novice</option>
+            <option value="corporate">Corporate</option>
+            <option value="elite">Elite</option>
           </select>
         </label>
         <label className="text-gray-300">
