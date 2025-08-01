@@ -1,6 +1,7 @@
 // src/pages/PublicProfilePage.jsx
 
 import React, { useEffect, useState } from 'react';
+import '../comma-branding.css';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -15,12 +16,23 @@ import {
   FaMoon,
   FaSun,
   FaSave,
-  FaStar // <-- add star icon for badge
+  FaStar, // <-- add star icon for badge
+  FaExchangeAlt,
+  FaDownload,
+  FaCalendarAlt
 } from 'react-icons/fa';
 import { MdQrCode } from 'react-icons/md';
 import QRCode from 'react-qr-code';
 import { useTheme } from '../App';
 import { useSpring, useTransition, animated } from '@react-spring/web';
+import ContactForm from '../components/ContactForm';
+
+// Subscription-based field restrictions
+const PLAN_FIELDS = {
+  Novice: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin'],
+  Corporate: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin', 'industry', 'website', 'calendlyLink'],
+  Elite: [] // All fields available
+};
 
 // Reusable ContactRow component
 function ContactRow({ icon, label, value, href, onCopy, isTopLink }) {
@@ -99,6 +111,7 @@ export default function PublicProfilePage() {
   const [msg, setMsg] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [insights, setInsights] = useState(null);
+  const [qrType, setQrType] = useState(() => localStorage.getItem('qrType') || 'url');
 
   // Contact form state
   const [form, setForm] = useState({
@@ -133,19 +146,61 @@ export default function PublicProfilePage() {
     config: { tension: 300, friction: 25 }
   });
 
-  // Fetch public profile
+  // Fetch public profile and insights in parallel, set loading to false as soon as profile is fetched
   useEffect(() => {
-    axios
-      .get(`${API}/api/public/${activationCode}`)
-      .then(res => setProfile(res.data))
-      .catch(() => setProfile(null))
-      .finally(() => setLoading(false));
-    // Fetch insights
-    axios
-      .get(`${API}/api/public/${activationCode}/insights`)
-      .then(res => setInsights(res.data))
-      .catch(() => setInsights(null));
+    let isMounted = true;
+    setLoading(true);
+    Promise.all([
+      axios.get(`${API}/api/public/${activationCode}`),
+      axios.get(`${API}/api/public/${activationCode}/insights`).catch(() => null)
+    ]).then(([profileRes, insightsRes]) => {
+      if (!isMounted) return;
+      setProfile(profileRes.data);
+      setInsights(insightsRes ? insightsRes.data : null);
+    }).catch(() => {
+      if (!isMounted) return;
+      setProfile(null);
+      setInsights(null);
+    }).finally(() => {
+      if (!isMounted) return;
+      setLoading(false);
+    });
+    return () => { isMounted = false; };
   }, [activationCode, API]);
+
+  // Add debug log for profile
+  useEffect(() => {
+    if (profile) console.log('Profile:', profile);
+  }, [profile]);
+
+  // After fetching the profile, set the theme from profile.theme
+  useEffect(() => {
+    if (profile?.theme) {
+      setTheme(profile.theme);
+    }
+  }, [profile?.theme, setTheme]);
+
+  // Only destructure profile fields after loading is complete and profile is not null
+  let bannerUrl = '', avatarUrl = '', name = '', title = '', subtitle = '', tags = [], location = '', email = '', phone = '', website = '', calendlyLink = '', socialLinks = {}, createdAt = '', industry = '', exclusiveBadge = undefined;
+  if (!loading && profile) {
+    ({
+      bannerUrl = '',
+      avatarUrl = '',
+      name = '',
+      title = '',
+      subtitle = '',
+      tags = [],
+      location = '',
+      email = '',
+      phone = '',
+      website = '',
+      calendlyLink = '',
+      socialLinks = {},
+      createdAt = '',
+      industry = '',
+      exclusiveBadge = undefined
+    } = profile);
+  }
 
   // Copy helper
   const copyToClipboard = txt => {
@@ -176,68 +231,13 @@ export default function PublicProfilePage() {
   const postLinkTap = async (link) => {
     try {
       await axios.post(`${API}/api/public/${activationCode}/link-tap`, { link });
+      // Only refetch insights, not the profile
+      setTimeout(() => {
+        axios.get(`${API}/api/public/${activationCode}/insights`).then(res => setInsights(res.data));
+      }, 300);
     } catch (e) {
       // Ignore errors for UX
     }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
-        <div className="animate-pulse text-gray-500">Loading profile…</div>
-      </div>
-    );
-  }
-  if (!profile) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="text-red-500">Profile not found.</div>
-      </div>
-    );
-  }
-
-  const {
-    bannerUrl,
-    avatarUrl,
-    name,
-    title,
-    subtitle,
-    tags = [],
-    location,
-    email,
-    phone,
-    website,
-    socialLinks = {},
-    createdAt,
-    exclusiveBadge // <-- get badge from profile
-  } = profile;
-
-  // Generate vCard
-  const vCard = [
-    'BEGIN:VCARD',
-    'VERSION:3.0',
-    `FN:${name}`,
-    `TITLE:${title || ''}`,
-    `ORG:${subtitle || ''}`,
-    `EMAIL;TYPE=work:${email || ''}`,
-    phone && `TEL;TYPE=CELL:${phone}`,
-    `URL:${FRONTEND}/p/${activationCode}`,
-    socialLinks.instagram && `X-SOCIALPROFILE;type=instagram:https://instagram.com/${socialLinks.instagram}`,
-    socialLinks.linkedin && `X-SOCIALPROFILE;type=linkedin:https://linkedin.com/in/${socialLinks.linkedin}`,
-    socialLinks.twitter && `X-SOCIALPROFILE;type=twitter:https://twitter.com/${socialLinks.twitter}`,
-    website && `URL;type=work:${website}`,
-    'END:VCARD'
-  ]
-    .filter(Boolean)
-    .join('\n');
-  const downloadVCard = () => {
-    const blob = new Blob([vCard], { type: 'text/vcard' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${name.replace(/\s+/g, '_')}.vcf`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   // Helper to get the correct profile URL (customSlug or activationCode)
@@ -246,10 +246,63 @@ export default function PublicProfilePage() {
     return `${FRONTEND.replace(/\/$/, '')}/p/${slug}`;
   };
 
+  // Add a helper to generate vCard string
+  const getVCardString = () => [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${name}`,
+    `TITLE:${title || ''}`,
+    `ORG:${subtitle || ''}`,
+    `EMAIL;TYPE=work:${email || ''}`,
+    phone && `TEL;TYPE=CELL:${phone}`,
+    website && `URL;type=work:${website}`,
+    socialLinks.instagram && `X-SOCIALPROFILE;type=instagram:https://instagram.com/${socialLinks.instagram}`,
+    socialLinks.linkedin && `X-SOCIALPROFILE;type=linkedin:https://linkedin.com/in/${socialLinks.linkedin}`,
+    socialLinks.twitter && `X-SOCIALPROFILE;type=twitter:https://twitter.com/${socialLinks.twitter}`,
+    'END:VCARD'
+  ].filter(Boolean).join('\n');
+
   // Determine top link from insights
   const topLink = insights?.topLink;
   const mostPopularContactMethod = insights?.mostPopularContactMethod;
-  const totalLinkTaps = insights?.totalTaps;
+  const totalLinkTaps = insights?.totalLinkTaps;
+
+  // Update isElite logic
+  const isElite = profile?.subscription?.plan === 'Elite' || insights?.subscription?.plan === 'Elite';
+
+  // Download vCard helper
+  const downloadVCard = async () => {
+    try {
+      await axios.post(`${API}/api/public/${activationCode}/contact-download`);
+    } catch (e) {
+      // Ignore errors for UX
+    }
+    const vCard = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${name}`,
+      `TITLE:${title || ''}`,
+      `ORG:${subtitle || ''}`,
+      `EMAIL;TYPE=work:${email || ''}`,
+      phone && `TEL;TYPE=CELL:${phone}`,
+      `URL:${FRONTEND}/p/${activationCode}`,
+      socialLinks.instagram && `X-SOCIALPROFILE;type=instagram:https://instagram.com/${socialLinks.instagram}`,
+      socialLinks.linkedin && `X-SOCIALPROFILE;type=linkedin:https://linkedin.com/in/${socialLinks.linkedin}`,
+      socialLinks.twitter && `X-SOCIALPROFILE;type=twitter:https://twitter.com/${socialLinks.twitter}`,
+      website && `URL;type=work:${website}`,
+      calendlyLink && `URL;type=calendly:${calendlyLink}`,
+      'END:VCARD'
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const blob = new Blob([vCard], { type: 'text/vcard' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name.replace(/\s+/g, '_')}.vcf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Card content JSX
   const CardContent = () => (
@@ -276,6 +329,10 @@ export default function PublicProfilePage() {
             : '0 4px 32px 0 #e0e0e0cc, 0 2px 0 #bdbdbd',
           backdropFilter: 'blur(2px)',
         }}>
+        {/* COMMA Branding for Novice profiles */}
+        {profile?.subscription?.plan === 'Novice' && (
+          <div className="comma-branding">COMMA,</div>
+        )}
         {/* Banner & Avatar */}
         <div className="h-32 bg-gray-300 dark:bg-gray-600 relative rounded-t-2xl overflow-visible">
           {bannerUrl && (
@@ -299,14 +356,16 @@ export default function PublicProfilePage() {
           <h1 className="text-2xl font-bold dark:text-white">{name}</h1>
           {title && <p className="mt-0 text-base font-medium text-gray-700 dark:text-gray-300">{title}</p>}
           {subtitle && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>}
-          {profile.industry && (
+          {/* Industry */}
+          {industry && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('industry')) && (
             <div className="flex justify-center mt-2">
               <span className="px-3 py-1 rounded-lg bg-gradient-to-r from-blue-400 via-blue-600 to-blue-800 text-white text-xs font-semibold shadow-lg border border-blue-300 dark:border-blue-700 tracking-wide">
-                {profile.industry}
+                {industry}
               </span>
             </div>
           )}
-          {tags.length > 0 && (
+          {/* Tags */}
+          {tags.length > 0 && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('tags')) && (
             <div className="flex flex-wrap justify-center gap-1 mt-2">
               {tags.map(t => (
                 <span
@@ -329,6 +388,20 @@ export default function PublicProfilePage() {
               ))}
             </div>
           )}
+          {/* Location */}
+          {location && (isElite) && (
+            <div className="flex justify-center mt-2">
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1 rounded-lg bg-gradient-to-r from-pink-400 via-pink-600 to-pink-800 text-white text-xs font-semibold shadow-lg border border-pink-300 dark:border-pink-700 tracking-wide hover:underline flex items-center gap-1"
+                title={`View ${location} on Google Maps`}
+              >
+                <FaMapMarkerAlt className="inline mr-1" />{location}
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -340,21 +413,22 @@ export default function PublicProfilePage() {
             <MdQrCode /> QR Code
           </button>
           <button
-            onClick={downloadVCard}
+            onClick={() => setModalOpen(true)}
             className="flex-1 bg-gradient-to-r from-green-400 via-green-500 to-green-600 text-white py-1.5 rounded-lg flex items-center justify-center gap-1 shadow hover:scale-105 transition text-sm"
           >
-            <FaSave /> Save to Contact
+            <FaExchangeAlt /> Exchange
           </button>
           <button
-            onClick={() => copyToClipboard(`${FRONTEND}/p/${activationCode}`)}
+            onClick={downloadVCard}
             className="w-8 h-8 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-400 dark:from-gray-600 dark:via-gray-700 dark:to-gray-800 rounded-lg flex items-center justify-center shadow hover:scale-105 transition"
           >
-            <FaRegCopy />
+            <FaDownload />
           </button>
         </div>
 
         {/* Contact Rows */}
         <div className="px-6 mt-4 space-y-2">
+          {/* Email - always shown */}
           {email && (
             <a
               href={`mailto:${email}`}
@@ -378,7 +452,8 @@ export default function PublicProfilePage() {
               <FaEnvelope className="mr-2 text-blue-500 dark:text-blue-400" />{email}
             </a>
           )}
-          {phone && (
+          {/* Phone */}
+          {phone && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('phone')) && (
             <a
               href={`tel:${phone}`}
               target="_blank"
@@ -401,11 +476,13 @@ export default function PublicProfilePage() {
               <FaPhone className="mr-2 text-green-500 dark:text-green-400" />{phone}
             </a>
           )}
-          {website && (
+          {/* Website */}
+          {website && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('website')) && (
             <a
               href={website.startsWith('http') ? website : `https://${website}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => { postLinkTap(website.startsWith('http') ? website : `https://${website}`); }}
               className="block w-full px-3 py-2 rounded-lg text-gray-900 text-sm font-semibold tracking-wide mb-2 shadow border border-gray-300 dark:border-gray-700 transition hover:scale-[1.025] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300] flex items-center gap-2"
               style={{
                 background: darkMode
@@ -420,15 +497,43 @@ export default function PublicProfilePage() {
                 minHeight: '44px',
               }}
             >
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 min-w-[60px]">Website</span>
-              <FaGlobe className="mr-2 text-purple-500 dark:text-purple-400" />{website}
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 min-w-[60px]">Website</span>
+          <FaGlobe className="mr-2 text-purple-500 dark:text-purple-400" />{website}
+        </a>
+      )}
+          {/* Calendly
+          {calendlyLink && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('calendlyLink')) && (
+            <a
+              href={calendlyLink.startsWith('http') ? calendlyLink : `https://${calendlyLink}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => { postLinkTap(calendlyLink.startsWith('http') ? calendlyLink : `https://${calendlyLink}`); }}
+              className="block w-full px-3 py-2 rounded-lg text-gray-900 text-sm font-semibold tracking-wide mb-2 shadow border border-gray-300 dark:border-gray-700 transition hover:scale-[1.025] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300] flex items-center gap-2"
+              style={{
+                background: darkMode
+                  ? 'linear-gradient(120deg, #232323 0%, #444 40%, #111 100%)'
+                  : 'linear-gradient(120deg, #f8f8f8 0%, #e6e6e6 40%, #bdbdbd 100%)',
+                color: darkMode ? '#e0e0e0' : '#232323',
+                textShadow: darkMode ? '0 1px 2px #0008, 0 0.5px 0 #444' : '0 1px 2px #fff8, 0 0.5px 0 #bdbdbd',
+                boxShadow: darkMode
+                  ? '0 2px 8px 0 #111a, 0 1.5px 0 #444'
+                  : '0 2px 8px 0 #e0e0e0cc, 0 1.5px 0 #bdbdbd',
+                border: darkMode ? '1px solid #444' : '1px solid #bdbdbd',
+                minHeight: '44px',
+              }}
+            >
+              <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 min-w-[60px]">Calendly</span>
+              <FaCalendarAlt className="mr-2 text-indigo-500 dark:text-indigo-400" />{calendlyLink}
             </a>
-          )}
-          {socialLinks.instagram && (
+          )} */}
+
+          {/* Instagram */}
+          {socialLinks.instagram && (isElite) && (
             <a
               href={`https://instagram.com/${socialLinks.instagram}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => { postLinkTap(`https://instagram.com/${socialLinks.instagram}`); }}
               className="block w-full px-3 py-2 rounded-lg text-gray-900 text-sm font-semibold tracking-wide mb-2 shadow border border-gray-300 dark:border-gray-700 transition hover:scale-[1.025] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300] flex items-center gap-2"
               style={{
                 background: darkMode
@@ -447,11 +552,13 @@ export default function PublicProfilePage() {
               <FaInstagram className="mr-2 text-pink-500 dark:text-pink-400" />{socialLinks.instagram}
             </a>
           )}
-          {socialLinks.linkedin && (
+          {/* LinkedIn */}
+          {socialLinks.linkedin && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('linkedin')) && (
             <a
               href={`https://linkedin.com/in/${socialLinks.linkedin}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => { postLinkTap(`https://linkedin.com/in/${socialLinks.linkedin}`); }}
               className="block w-full px-3 py-2 rounded-lg text-gray-900 text-sm font-semibold tracking-wide mb-2 shadow border border-gray-300 dark:border-gray-700 transition hover:scale-[1.025] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300] flex items-center gap-2"
               style={{
                 background: darkMode
@@ -470,11 +577,13 @@ export default function PublicProfilePage() {
               <FaLinkedin className="mr-2 text-blue-700 dark:text-blue-300" />{socialLinks.linkedin}
             </a>
           )}
-          {socialLinks.twitter && (
+          {/* Twitter */}
+          {socialLinks.twitter && (isElite) && (
             <a
               href={`https://twitter.com/${socialLinks.twitter}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => { postLinkTap(`https://twitter.com/${socialLinks.twitter}`); }}
               className="block w-full px-3 py-2 rounded-lg text-gray-900 text-sm font-semibold tracking-wide mb-2 shadow border border-gray-300 dark:border-gray-700 transition hover:scale-[1.025] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300] flex items-center gap-2"
               style={{
                 background: darkMode
@@ -493,34 +602,41 @@ export default function PublicProfilePage() {
               <FaTwitter className="mr-2 text-blue-400 dark:text-blue-200" />{socialLinks.twitter}
             </a>
           )}
-          {location && (
-            <span
-              className="block w-full px-3 py-2 rounded-lg text-gray-900 text-sm font-semibold tracking-wide mb-2 shadow border border-gray-300 dark:border-gray-700 flex items-center gap-2"
-              style={{
-                background: darkMode
-                  ? 'linear-gradient(120deg, #232323 0%, #444 40%, #111 100%)'
-                  : 'linear-gradient(120deg, #f8f8f8 0%, #e6e6e6 40%, #bdbdbd 100%)',
-                color: darkMode ? '#e0e0e0' : '#232323',
-                textShadow: darkMode ? '0 1px 2px #0008, 0 0.5px 0 #444' : '0 1px 2px #fff8, 0 0.5px 0 #bdbdbd',
-                boxShadow: darkMode
-                  ? '0 2px 8px 0 #111a, 0 1.5px 0 #444'
-                  : '0 2px 8px 0 #e0e0e0cc, 0 1.5px 0 #bdbdbd',
-                border: darkMode ? '1px solid #444' : '1px solid #bdbdbd',
-                minHeight: '44px',
-              }}
-            >
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 min-w-[60px]">Location</span>
-              <FaMapMarkerAlt className="mr-2 text-gray-600 dark:text-gray-400" />{location}
-            </span>
-          )}
         </div>
 
-        {/* Insights Summary - below contact rows */}
-        {insights && mostPopularContactMethod && (
-          <div className="mt-4 mb-2 text-center">
-            <span className="bg-yellow-100 text-yellow-900 px-2 py-1 rounded-full text-xs font-semibold">
-              <b>Top Contact Method:</b> {mostPopularContactMethod.charAt(0).toUpperCase() + mostPopularContactMethod.slice(1)}
+        {/* Calendly
+        {calendlyLink && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('calendlyLink')) && (
+            <a href={calendlyLink.startsWith('http') ? calendlyLink : `https://${calendlyLink}`}target="_blank"
+            rel="noopener noreferrer" onClick={() => postLinkTap(calendlyLink.startsWith('http') ? calendlyLink : `https://${calendlyLink}`)}
+            className="block w-full px-4 py-3 rounded-lg text-sm font-semibold tracking-wide mb-2 shadow border transition flex items-center justify-between gap-2 hover:scale-[1.025] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
+            style={{
+              background: darkMode ? 'linear-gradient(120deg, #232323 0%, #444 40%, #111 100%)'
+                        : 'linear-gradient(120deg, #f8f8f8 0%, #e6e6e6 40%, #bdbdbd 100%)',
+              color: darkMode ? '#e0e0e0' : '#232323',
+              textShadow: darkMode ? '0 1px 2px #0008' : '0 1px 2px #fff8',
+              boxShadow: darkMode ? '0 2px 8px 0 #111a, 0 1.5px 0 #444'
+              : '0 2px 8px 0 #e0e0e0cc, 0 1.5px 0 #bdbdbd',
+              border: darkMode ? '1px solid #444' : '1px solid #bdbdbd',
+              minHeight: '44px',
+          }}>
+            <FaCalendarAlt className="text-indigo-500 dark:text-indigo-400" />
+            <span className="text-sm font-medium">
+            Schedule a meeting
             </span>
+        </a>
+      )} */}
+
+        {/* Schedule Button */}
+        {calendlyLink && (isElite || PLAN_FIELDS[profile?.subscription?.plan || 'Novice']?.includes('calendlyLink')) && (
+          <div className="px-6 mt-2 flex gap-2">
+            <button onClick={() => window.open(
+              calendlyLink.startsWith('http') ? calendlyLink : `https://${calendlyLink}`,
+              '_blank'
+            )}
+            className="flex-1 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white py-1.5 rounded-lg flex items-center justify-center gap-1 shadow hover:scale-105 transition text-sm"
+            >
+              <FaCalendarAlt /> Schedule Meet
+            </button>
           </div>
         )}
 
@@ -533,6 +649,26 @@ export default function PublicProfilePage() {
       </div>
     </>
   );
+
+  // Show loading animation while fetching profile
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="animate-spin-slow">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="32" cy="32" r="28" stroke="#D4AF37" strokeWidth="6" opacity="0.2" />
+            <path d="M44 32c0 6.627-5.373 12-12 12S20 38.627 20 32 25.373 20 32 20c2.21 0 4 1.79 4 4s-1.79 4-4 4c-2.21 0-4 1.79-4 4s1.79 4 4 4c4.418 0 8-3.582 8-8" stroke="#D4AF37" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+              <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="1s" repeatCount="indefinite" />
+            </path>
+          </svg>
+        </div>
+        <style>{`
+          @keyframes spin-slow { 100% { transform: rotate(360deg); } }
+          .animate-spin-slow { animation: spin-slow 1s linear infinite; }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-white via-gray-100 to-gray-200 dark:from-black dark:via-gray-900 dark:to-gray-800">
@@ -568,23 +704,14 @@ export default function PublicProfilePage() {
           </div>
         </animated.div>
       </div>
-
-      {/* Exchange Contact Button Below Card */}
-      <div className="mt-4 w-full max-w-md px-6 pb-6">
-        <button
-          onClick={() => setModalOpen(true)}
-          className="w-full bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 py-3 rounded-lg hover:opacity-90 transition"
-        >
-          Exchange Contact
-        </button>
-      </div>
-
+      
+     
       {/* Branding Footer */}
       <footer className="w-full flex flex-col items-center justify-center mt-auto py-4">
-        <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
-          comma<span className="opacity-70">Cards</span>
+        <div className="text-xl font-bold text-gray-700 dark:text-gray-200" style={{ fontFamily: 'Garet, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          COMMA PROFILE
         </div>
-        <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1">
+        <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1" style={{ fontFamily: 'SpaceMono, monospace', fontSize: '0.8rem', letterSpacing: '0.15em' }}>
           CONTINUED RELATIONSHIPS
         </div>
         <a
@@ -609,7 +736,7 @@ export default function PublicProfilePage() {
               >
                 ✕
               </button>
-              <h2 className="mb-4 text-xl font-semibold">Send a Connection Message - With Meeting Details</h2>
+              <h2 className="mb-4 text-xl font-semibold">Help them remember you better. Add a short message along with when & where you met</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm">Your Name</label>
@@ -618,7 +745,7 @@ export default function PublicProfilePage() {
                     value={form.name}
                     onChange={handleChange}
                     required
-                    placeholder="e.g. Jane Doe"
+                    placeholder="So they remember you — e.g. Jane Doe"
                     className="w-full mt-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400"
                   />
                 </div>
@@ -636,12 +763,12 @@ export default function PublicProfilePage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm">Event We Met At</label>
+                    <label className="block text-sm">Where did we meet?</label>
                     <input
                       name="event"
                       value={form.event}
                       onChange={handleChange}
-                      placeholder="e.g. Tech Conference 2025"
+                      placeholder="e.g. TEDx IITM"
                       className="w-full mt-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400"
                     />
                   </div>
@@ -657,12 +784,12 @@ export default function PublicProfilePage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm">Place</label>
+                  <label className="block text-sm">City/Venue</label>
                   <input
                     name="place"
                     value={form.place}
                     onChange={handleChange}
-                    placeholder="e.g. San Francisco"
+                    placeholder="e.g. Bangalore"
                     className="w-full mt-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400"
                   />
                 </div>
@@ -673,7 +800,7 @@ export default function PublicProfilePage() {
                     value={form.message}
                     onChange={handleChange}
                     rows="3"
-                    placeholder="e.g. It was great meeting you at the event!"
+                    placeholder="Add a personal touch or reminder"
                     className="w-full mt-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400"
                   />
                 </div>
@@ -696,8 +823,17 @@ export default function PublicProfilePage() {
       {showQR && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center">
-            <QRCode value={getProfileUrl()} size={120} fgColor={theme === 'dark' ? '#D4AF37' : '#000000'} bgColor="transparent" />
-            <p className="mt-2 text-xs text-gray-700 dark:text-gray-300">Scan to open profile</p>
+            <QRCode
+              value={qrType === 'vcard' ? getVCardString() : getProfileUrl()}
+              size={120}
+              fgColor={theme === 'dark' ? '#D4AF37' : '#000000'}
+              bgColor="transparent"
+            />
+            <p className="mt-2 text-xs text-gray-700 dark:text-gray-300">
+              {qrType === 'vcard'
+                ? 'Scan to add contact (works offline)'
+                : 'Scan to open profile (needs internet)'}
+            </p>
             <button
               onClick={() => setShowQR(false)}
               className="mt-3 text-blue-500 dark:text-blue-400 hover:underline"

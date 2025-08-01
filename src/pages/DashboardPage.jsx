@@ -10,12 +10,14 @@ import {
   FaLinkedin,
   FaTwitter,
   FaGlobe,
+  FaCalendarAlt,
   FaMapMarkerAlt,
   FaSave,
   FaRegCopy,
   FaMoon,
   FaSun,
-  FaEdit
+  FaEdit,
+  FaLock
 } from 'react-icons/fa';
 import { MdQrCode } from 'react-icons/md';
 import QRCode from 'react-qr-code';
@@ -23,6 +25,8 @@ import { useTheme } from '../App';
 import { useSpring, animated } from '@react-spring/web';
 import ImageCropper from '../components/ImageCropper';
 import { industries } from '../utils/constants';
+import '../comma-branding.css';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 // Reusable ContactRow
 const ContactRow = memo(function ContactRow({ icon, label, value, href, onCopy }) {
@@ -53,6 +57,28 @@ const ContactRow = memo(function ContactRow({ icon, label, value, href, onCopy }
   );
 });
 
+// Subscription-based field restrictions
+const PLAN_FIELDS = {
+  Novice: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin'],
+  Corporate: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin', 'industry', 'website', 'calendlyLink'],
+  Elite: [] // All fields available
+};
+
+const ALL_FIELDS = [
+  { key: 'name', label: 'Name', type: 'text', placeholder: 'e.g. Jane Doe' },
+  { key: 'title', label: 'Title', type: 'text', placeholder: 'e.g. CEO' },
+  { key: 'subtitle', label: 'Subtitle / Organization', type: 'text', placeholder: 'e.g. Acme Inc.' },
+  { key: 'tags', label: 'Tags (comma-separated)', type: 'text', placeholder: 'e.g. Marketing, Networking, SaaS' },
+  { key: 'phone', label: 'Phone', type: 'tel', placeholder: 'e.g. +91 9876543210' },
+  { key: 'website', label: 'Website', type: 'url', placeholder: 'e.g. https://yourcompany.com' },
+  { key: 'calendlyLink', label: 'Calendly Link', type: 'url', placeholder: 'e.g. https://calendly.com/yourlink' },
+  { key: 'instagram', label: 'Instagram', type: 'text', placeholder: 'e.g. yourhandle' },
+  { key: 'linkedin', label: 'LinkedIn', type: 'text', placeholder: 'e.g. your-linkedin-url-id' },
+  { key: 'twitter', label: 'Twitter', type: 'text', placeholder: 'e.g. yourhandle' },
+  { key: 'location', label: 'Location', type: 'text', placeholder: 'e.g. San Francisco, CA' },
+  { key: 'industry', label: 'Industry', type: 'select', placeholder: 'Select an industry' }
+];
+
 // Extracted CardContent to top-level to preserve input focus
 const CardContent = memo(function CardContent({
   API,
@@ -66,6 +92,7 @@ const CardContent = memo(function CardContent({
   uploadFile,
   theme,
   setTheme,
+  handleThemeToggle, // <-- add this
   profile,
   setEditMode,
   setShowQR,
@@ -75,16 +102,24 @@ const CardContent = memo(function CardContent({
   isDashboard,
   saveProfile,
   handleFileInput,
-  uiStyle
+  uiStyle,
+  subscription,
+  navigate
 }) {
   // Use backend-provided slug for all links
   const profileSlug = profile.slug || profile.customSlug || profile.activationCode;
+  const plan = subscription?.plan || 'Novice';
+  
   return (
     <>
+      {/* COMMA Branding for Novice profiles */}
+      {plan === 'Novice' && (
+        <div className="comma-branding">COMMA,</div>
+      )}
       {/* Theme toggle */}
       <div className="absolute top-3 right-3 z-10">
         <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          onClick={handleThemeToggle}
           className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full shadow hover:scale-105 transition"
         >
           {theme === 'dark' ? <FaSun className="text-yellow-400" /> : <FaMoon className="text-gray-800" />}
@@ -116,7 +151,12 @@ const CardContent = memo(function CardContent({
         {form && form.industry && (
           <div className="flex justify-center mt-2">
             <span className="px-3 py-1 rounded-lg text-xs font-semibold shadow-lg border tracking-wide"
-              style={theme === 'dark' ? { background: 'linear-gradient(120deg, #23272f 0%, #23272f 40%, #181a20 100%)', color: '#FFD700', border: '1.5px solid #FFD700', boxShadow: '0 2px 8px 0 #FFC30055' } : { background: 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)', color: '#fff', border: '1.5px solid #2563eb' }}>
+              style={{
+                background: 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)',
+                color: '#fff',
+                border: '1.5px solid #2563eb',
+                boxShadow: '0 2px 8px 0 #2563eb55'
+              }}>
               {form.industry}
             </span>
           </div>
@@ -130,7 +170,7 @@ const CardContent = memo(function CardContent({
                 style={{
                   background: theme === 'dark'
                     ? 'linear-gradient(120deg, #23272f 0%, #23272f 40%, #181a20 100%)'
-                    : 'linear-gradient(120deg, #e6e6e6 0%, #f5f5f5 40%, #bdbdbd 100%)',
+                    : 'linear-gradient(120deg, #f8f8f8 0%, #e6e6e6 40%, #bdbdbd 100%)',
                   color: theme === 'dark' ? '#e0e0e0' : '#232323',
                   textShadow: theme === 'dark' ? '0 1px 2px #000a, 0 0.5px 0 #23272f' : '0 1px 2px #fff8, 0 0.5px 0 #bdbdbd',
                   boxShadow: theme === 'dark'
@@ -155,10 +195,10 @@ const CardContent = memo(function CardContent({
             <MdQrCode /> QR Code
           </button>
           <button
-            onClick={downloadVCard}
-            className="flex-1 bg-green-500 text-white py-1.5 rounded-lg flex items-center justify-center gap-1 shadow hover:bg-green-600 transition text-sm border border-green-600"
+            onClick={() => setEditMode(true)}
+            className="flex-1 bg-yellow-500 text-white py-1.5 rounded-lg flex items-center justify-center gap-1 shadow hover:bg-yellow-600 transition text-sm border border-yellow-600"
           >
-            <FaSave /> Save to Contact
+            <FaEdit /> Edit Profile
           </button>
           <button
             onClick={() => copyToClipboard(`${window.location.origin}/p/${profileSlug}`)}
@@ -201,7 +241,11 @@ const CardContent = memo(function CardContent({
                   ? 'linear-gradient(120deg, #23272f 0%, #23272f 40%, #181a20 100%)'
                   : 'linear-gradient(120deg, #f8f8f8 0%, #e6e6e6 40%, #bdbdbd 100%)',
                 color: theme === 'dark' ? '#e0e0e0' : '#232323',
-                border: theme === 'dark' ? '1px solid #23272f' : '1px solid #bdbdbd',
+                textShadow: theme === 'dark' ? '0 1px 2px #0008, 0 0.5px 0 #444' : '0 1px 2px #bdbdbd, 0 0.5px 0 #fff8',
+                boxShadow: theme === 'dark'
+                  ? '0 2px 8px 0 #111a, 0 1.5px 0 #444'
+                  : '0 2px 8px 0 #e0e0e0cc, 0 1.5px 0 #bdbdbd',
+                border: theme === 'dark' ? '1px solid #444' : '1px solid #bdbdbd',
                 minHeight: '44px',
               }}
             >
@@ -220,15 +264,42 @@ const CardContent = memo(function CardContent({
                   ? 'linear-gradient(120deg, #23272f 0%, #23272f 40%, #181a20 100%)'
                   : 'linear-gradient(120deg, #f8f8f8 0%, #e6e6e6 40%, #bdbdbd 100%)',
                 color: theme === 'dark' ? '#e0e0e0' : '#232323',
-                border: theme === 'dark' ? '1px solid #23272f' : '1px solid #bdbdbd',
+                textShadow: theme === 'dark' ? '0 1px 2px #0008, 0 0.5px 0 #444' : '0 1px 2px #bdbdbd, 0 0.5px 0 #fff8',
+                boxShadow: theme === 'dark'
+                  ? '0 2px 8px 0 #111a, 0 1.5px 0 #444'
+                  : '0 2px 8px 0 #e0e0e0cc, 0 1.5px 0 #bdbdbd',
+                border: theme === 'dark' ? '1px solid #444' : '1px solid #bdbdbd',
                 minHeight: '44px',
               }}
             >
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 min-w-[60px]">Website</span>
-              <FaGlobe className="mr-2 text-purple-500 dark:text-purple-400" />{profile.website}
-            </a>
-          )}
-          {profile.socialLinks?.instagram && (
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 min-w-[60px]">Website</span>
+          <FaGlobe className="mr-2 text-purple-500 dark:text-purple-400" />{profile.website}
+        </a>
+      )}
+      {profile.calendlyLink && (
+        <a
+          href={profile.calendlyLink.startsWith('http') ? profile.calendlyLink : `https://${profile.calendlyLink}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full px-3 py-2 rounded-lg text-gray-900 dark:text-gray-100 text-sm font-semibold tracking-wide mb-2 shadow border border-gray-300 dark:border-[#23272f] transition hover:scale-[1.025] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300] flex items-center gap-2"
+          style={{
+            background: theme === 'dark'
+              ? 'linear-gradient(120deg, #23272f 0%, #23272f 40%, #181a20 100%)'
+              : 'linear-gradient(120deg, #f8f8f8 0%, #e6e6e6 40%, #bdbdbd 100%)',
+            color: theme === 'dark' ? '#e0e0e0' : '#232323',
+            textShadow: theme === 'dark' ? '0 1px 2px #0008, 0 0.5px 0 #444' : '0 1px 2px #bdbdbd, 0 0.5px 0 #fff8',
+            boxShadow: theme === 'dark'
+              ? '0 2px 8px 0 #111a, 0 1.5px 0 #444'
+              : '0 2px 8px 0 #e0e0e0cc, 0 1.5px 0 #bdbdbd',
+            border: theme === 'dark' ? '1px solid #444' : '1px solid #bdbdbd',
+            minHeight: '44px',
+          }}
+        >
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 min-w-[60px]">Calendly</span>
+          <FaCalendarAlt className="mr-2 text-indigo-500 dark:text-indigo-400" />{profile.calendlyLink}
+        </a>
+      )}
+      {profile.socialLinks && profile.socialLinks.instagram && (
             <a
               href={`https://instagram.com/${profile.socialLinks.instagram}`}
               target="_blank"
@@ -251,7 +322,7 @@ const CardContent = memo(function CardContent({
               <FaInstagram className="mr-2 text-pink-500 dark:text-pink-400" />{profile.socialLinks.instagram}
             </a>
           )}
-          {profile.socialLinks?.linkedin && (
+          {profile.socialLinks && profile.socialLinks.linkedin && (
             <a
               href={`https://linkedin.com/in/${profile.socialLinks.linkedin}`}
               target="_blank"
@@ -274,7 +345,7 @@ const CardContent = memo(function CardContent({
               <FaLinkedin className="mr-2 text-blue-700 dark:text-blue-300" />{profile.socialLinks.linkedin}
             </a>
           )}
-          {profile.socialLinks?.twitter && (
+          {profile.socialLinks && profile.socialLinks.twitter && (
             <a
               href={`https://twitter.com/${profile.socialLinks.twitter}`}
               target="_blank"
@@ -332,144 +403,64 @@ const CardContent = memo(function CardContent({
           Logout
         </button>
       )}
-      {/* Edit Mode Fields (unchanged) */}
+      {/* Edit Mode Fields with Subscription Restrictions */}
       {editMode && (
         <div className="px-6 pt-4 pb-6 space-y-4 text-left">
-          {/* Name */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Name</label>
-            <input
-              type="text"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="e.g. Jane Doe"
-              className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-            />
-          </div>
-          {/* Title */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Title</label>
-            <input
-              type="text"
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              placeholder="e.g. CEO"
-              className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-            />
-          </div>
-          {/* Subtitle */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Subtitle / Organization</label>
-            <input
-              type="text"
-              name="subtitle"
-              value={form.subtitle}
-              onChange={handleChange}
-              placeholder="e.g. Acme Inc."
-              className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-            />
-          </div>
-          {/* Tags */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Tags (comma-separated)</label>
-            <input
-              type="text"
-              name="tags"
-              value={form.tags.join(', ')}
-              onChange={handleChange}
-              placeholder="e.g. Marketing, Networking, SaaS"
-              className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-            />
-          </div>
-          {/* Phone */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Phone</label>
-            <input
-              type="tel"
-              name="phone"
-              value={form.phone}
-              onChange={handleChange}
-              placeholder="e.g. +91 9876543210"
-              className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-            />
-          </div>
-          {/* Website */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Website</label>
-            <input
-              type="url"
-              name="website"
-              value={form.website}
-              onChange={handleChange}
-              placeholder="e.g. https://yourcompany.com"
-              className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-            />
-          </div>
-          {/* Social + Location */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Instagram</label>
-              <input
-                type="text"
-                name="instagram"
-                value={form.socialLinks.instagram}
-                onChange={handleChange}
-                placeholder="e.g. yourhandle"
-                className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">LinkedIn</label>
-              <input
-                type="text"
-                name="linkedin"
-                value={form.socialLinks.linkedin}
-                onChange={handleChange}
-                placeholder="e.g. your-linkedin-url-id"
-                className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Twitter</label>
-              <input
-                type="text"
-                name="twitter"
-                value={form.socialLinks.twitter}
-                onChange={handleChange}
-                placeholder="e.g. yourhandle"
-                className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Location</label>
-              <input
-                type="text"
-                name="location"
-                value={form.location}
-                onChange={handleChange}
-                placeholder="e.g. San Francisco, CA"
-                className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-              />
-            </div>
-          </div>
-          {/* Industry Selection */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">Industry</label>
-            <select
-              name="industry"
-              value={form.industry || ''}
-              onChange={handleChange}
-              className="w-full text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-[#FFC300]"
-            >
-              <option value="" disabled>Select an industry</option>
-              {industries.map(ind => (
-                <option key={ind} value={ind}>{ind}</option>
-              ))}
-            </select>
-          </div>
-          {/* File uploads */}
+          {/* Render fields based on subscription plan */}
+          {ALL_FIELDS.map(({ key, label, type, placeholder }) => {
+            // Normalize plan string to match PLAN_FIELDS keys
+            const normalizedPlan = (profile?.subscription?.plan && PLAN_FIELDS[profile.subscription.plan]) ? profile.subscription.plan : 'Novice';
+            const isElite = profile?.subscription?.plan === 'Elite';
+            const isAllowed = isElite || PLAN_FIELDS[normalizedPlan]?.includes(key);
+            if (isAllowed) {
+              // Render normal input field
+              if (type === 'select') {
+                return (
+                  <div key={key} className="space-y-2">
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">{label}</label>
+                    <select
+                      name={key}
+                      value={form[key] || ''}
+                      onChange={handleChange}
+                      className="w-full text-sm bg-white/40 dark:bg-white/10 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-lg px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="" disabled>{placeholder}</option>
+                      {key === 'industry' && industries.map(ind => (
+                        <option key={ind} value={ind}>{ind}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={key} className="space-y-2">
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 ml-1">{label}</label>
+                    <input
+                      type={type}
+                      name={key}
+                      value={key === 'tags' ? form[key].join(', ') : (key === 'instagram' || key === 'linkedin' || key === 'twitter' ? form.socialLinks[key] : form[key])}
+                      onChange={handleChange}
+                      placeholder={placeholder}
+                      className="w-full text-sm bg-white/40 dark:bg-white/10 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-lg px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                );
+              }
+            } else {
+              // Render locked field
+              return (
+                <div key={key} className="locked-field flex justify-between items-center p-3 mb-2 bg-white/40 dark:bg-white/10 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-lg shadow-lg">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                  <span className="flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-300">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M12 17v.01M7 7v.01M17 7v.01M7 17v.01M17 17v.01M12 7v.01M12 12v.01M7 12v.01M17 12v.01" /></svg>
+                    Upgrade to use
+                  </span>
+                </div>
+              );
+            }
+          })}
+          
+          {/* File uploads - always available */}
           <div className="grid grid-cols-2 gap-4 items-end">
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">Change Banner</label>  
@@ -477,7 +468,7 @@ const CardContent = memo(function CardContent({
                 type="file"
                 accept="image/*"
                 onChange={e => handleFileInput(e, 'banner')}
-                className="block w-full text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded focus:outline-none file:bg-gray-200 dark:file:bg-gray-700 file:text-gray-900 dark:file:text-gray-100 file:border-0 file:rounded file:px-3 file:py-1 file:mr-2 file:cursor-pointer"
+                className="block w-full text-sm text-gray-900 dark:text-gray-100 bg-white/40 dark:bg-white/10 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none file:bg-blue-600 file:text-white file:font-semibold hover:file:bg-blue-700 transition"
               />
               {bannerFile && (
                 <button
@@ -494,7 +485,7 @@ const CardContent = memo(function CardContent({
                 type="file"
                 accept="image/*"
                 onChange={e => handleFileInput(e, 'avatar')}
-                className="block w-full text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded focus:outline-none file:bg-gray-200 dark:file:bg-gray-700 file:text-gray-900 dark:file:text-gray-100 file:border-0 file:rounded file:px-3 file:py-1 file:mr-2 file:cursor-pointer"
+                className="block w-full text-sm text-gray-900 dark:text-gray-100 bg-white/40 dark:bg-white/10 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none file:bg-blue-600 file:text-white file:font-semibold hover:file:bg-blue-700 transition"
               />
               {avatarFile && (
                 <button
@@ -507,16 +498,16 @@ const CardContent = memo(function CardContent({
             </div>
           </div>
           {/* Save and Cancel Buttons */}
-          <div className="flex gap-2 justify-end pt-2">
+          <div className="flex gap-3 justify-end mt-6">
             <button
               onClick={() => setEditMode(false)}
-              className="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+              className="px-6 py-2 rounded-lg bg-white/40 text-gray-900 border border-gray-200 shadow font-semibold hover:bg-white/60 transition"
             >
               Cancel
             </button>
             <button
               onClick={saveProfile}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+              className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow transition"
             >
               Save
             </button>
@@ -541,6 +532,7 @@ export default function DashboardPage() {
     ownerEmail: '',
     phone: '',
     website: '',
+    calendlyLink: '',
     location: '',
     bio: '',
     industry: '', // <-- add industry field
@@ -569,7 +561,14 @@ export default function DashboardPage() {
   const [industries, setIndustries] = useState([]);
   // UI Style toggle
   const [uiStyle, setUiStyle] = useState(() => localStorage.getItem('uiStyle') || 'chrome');
+  const [graphDays, setGraphDays] = useState(30);
+  const filteredViewCounts = React.useMemo(() => {
+    if (!insights || !Array.isArray(insights.viewCountsOverTime)) return [];
+    return insights.viewCountsOverTime.slice(-graphDays);
+  }, [insights, graphDays]);
   useEffect(() => { localStorage.setItem('uiStyle', uiStyle); }, [uiStyle]);
+  const [qrType, setQrType] = useState(() => localStorage.getItem('qrType') || 'url');
+  useEffect(() => { localStorage.setItem('qrType', qrType); }, [qrType]);
 
   useEffect(() => {
     fetch('https://nfc-backend-9c1q.onrender.com/api/profile/industries')
@@ -579,6 +578,30 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => setDarkMode(theme === 'dark'), [theme]);
+
+  // Add debug log for profile
+  useEffect(() => {
+    if (profile) console.log('Profile:', profile);
+  }, [profile]);
+
+  // Theme persistence: set theme from profile on load
+  useEffect(() => {
+    if (profile?.theme) {
+      setTheme(profile.theme);
+    }
+  }, [profile, setTheme]);
+
+  // Theme toggle handler that saves to backend
+  const handleThemeToggle = async () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    try {
+      await axios.patch(`${API}/api/profile/${profileId}/theme`, { theme: newTheme });
+      setProfile(prev => prev ? { ...prev, theme: newTheme } : prev);
+    } catch (err) {
+      // Optionally show error
+    }
+  };
 
   const { rotateY } = useSpring({
     rotateY: darkMode ? 180 : 0,
@@ -684,6 +707,7 @@ export default function DashboardPage() {
     profile?.socialLinks?.twitter &&
       `X-SOCIALPROFILE;type=twitter:https://twitter.com/${profile.socialLinks.twitter}`,
     profile?.website && `URL;type=work:${profile.website}`,
+    profile?.calendlyLink && `URL;type=calendly:${profile.calendlyLink}`,
     'END:VCARD'
   ].filter(Boolean);
   const vCard = vCardLines.join('\n');
@@ -724,10 +748,13 @@ export default function DashboardPage() {
             ...initialForm.socialLinks,
             ...(data.socialLinks || {})
           },
+          calendlyLink: data.calendlyLink || '',
           bannerUrl: data.bannerUrl || '',
           avatarUrl: data.avatarUrl || ''
         });
         setInsightsEnabled(!!data.insightsEnabled);
+        // Set qrType from backend if present
+        if (data.qrType) setQrType(data.qrType);
       })
       .catch((err) => {
         setError('Profile not found or server error.');
@@ -744,7 +771,18 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
-        <div className="animate-pulse text-gray-500">Loading profile…</div>
+        <div className="animate-spin-slow">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="32" cy="32" r="28" stroke="#D4AF37" strokeWidth="6" opacity="0.2" />
+            <path d="M44 32c0 6.627-5.373 12-12 12S20 38.627 20 32 25.373 20 32 20c2.21 0 4 1.79 4 4s-1.79 4-4 4c-2.21 0-4 1.79-4 4s1.79 4 4 4c4.418 0 8-3.582 8-8" stroke="#D4AF37" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+              <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="1s" repeatCount="indefinite" />
+            </path>
+          </svg>
+        </div>
+        <style>{`
+          @keyframes spin-slow { 100% { transform: rotate(360deg); } }
+          .animate-spin-slow { animation: spin-slow 1s linear infinite; }
+        `}</style>
       </div>
     );
   }
@@ -765,6 +803,14 @@ export default function DashboardPage() {
     );
   }
 
+  // --- Plan Awareness & Feature Gating ---
+  const subscriptionPlan = profile?.subscription?.plan || 'Novice';
+  // --- CTA Label Logic (simple example, can be improved with plan info) ---
+  const ctaLabel = subscriptionPlan === 'free' ? 'Upgrade to unlock insights' : `Upgrade your plan`;
+  // --- Contact Exchange Limits ---
+  const contactExchangeLimit = insights?.contactExchangeLimit ?? (subscriptionPlan === 'free' ? 0 : 'Unlimited');
+  const contactExchangeRemaining = insights?.contactExchangeRemaining ?? (subscriptionPlan === 'free' ? 0 : 'Unlimited');
+
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-white via-gray-100 to-gray-200 dark:from-black dark:via-gray-900 dark:to-gray-800">
       {/* UI Style Toggle */}
@@ -781,6 +827,7 @@ export default function DashboardPage() {
           </select>
         </label>
       </div> */}
+
       {/* Card Section */}
       <div style={{ perspective: '800px' }} className="relative w-full max-w-md flex-1 flex flex-col justify-center">
         <animated.div
@@ -820,6 +867,7 @@ export default function DashboardPage() {
               uploadFile={uploadFile}
               theme={theme}
               setTheme={setTheme}
+              handleThemeToggle={handleThemeToggle}
               profile={{ ...profile, slug: profileSlug }}
               setEditMode={setEditMode}
               setShowQR={setShowQR}
@@ -830,6 +878,8 @@ export default function DashboardPage() {
               saveProfile={saveProfile}
               handleFileInput={handleFileInput}
               uiStyle={uiStyle}
+              subscription={profile.subscription}
+              navigate={navigate}
             />
           </div>
           {/* Back Face (edit mode) */}
@@ -839,7 +889,7 @@ export default function DashboardPage() {
               background: darkMode
                 ? 'linear-gradient(120deg, #23272f 0%, #23272f 40%, #181a20 100%)'
                 : 'linear-gradient(120deg, #f8f8f8 0%, #e6e6e6 40%, #bdbdbd 100%)',
-              border: darkMode ? '1.5px solid #23272f' : '1.5px solid #bdbdbd',
+              border: darkMode ? '1.5px solid #23272f' : '1px solid #bdbdbd',
               boxShadow: darkMode
                 ? '0 4px 32px 0 #000a, 0 2px 0 #23272f'
                 : '0 4px 32px 0 #e0e0e0cc, 0 2px 0 #bdbdbd',
@@ -861,6 +911,7 @@ export default function DashboardPage() {
               uploadFile={uploadFile}
               theme={theme}
               setTheme={setTheme}
+              handleThemeToggle={handleThemeToggle}
               profile={{ ...profile, slug: profileSlug }}
               setEditMode={setEditMode}
               setShowQR={setShowQR}
@@ -871,28 +922,153 @@ export default function DashboardPage() {
               saveProfile={saveProfile}
               handleFileInput={handleFileInput}
               uiStyle={uiStyle}
+              subscription={profile.subscription}
+              navigate={navigate}
             />
           </div>
         </animated.div>
       </div>
-      {/* Insights Button Below Card */}
+      {/* Insights CTA or Insights Panel */}
       <div className="w-full max-w-md flex flex-col items-center">
         {insightsEnabled && (
-          <button
-            className="mt-6 mb-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition shadow"
-            onClick={() => navigate('/dashboard/insights')}
-          >
-            View Insights
-          </button>
+          <div className="relative w-full flex flex-col items-center mt-6 mb-2">
+            <div className="relative w-full flex justify-center">
+              <button
+                className={`px-8 py-2 rounded-lg font-semibold transition shadow bg-blue-600 text-white hover:bg-blue-700 z-10 ${insights?.showInsightsCTA ? 'opacity-60 cursor-not-allowed' : ''}`}
+                onClick={async (e) => {
+                  if (insights?.showInsightsCTA) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                  }
+                  try {
+                    const res = await axios.get(`${API}/api/profile/${profileId}/insights`);
+                    setInsights(res.data);
+                    if (!res.data?.showInsightsCTA) {
+                      navigate('/dashboard/insights');
+                    }
+                  } catch {
+                    // Optionally show error
+                  }
+                }}
+                disabled={!!insights?.showInsightsCTA}
+                tabIndex={insights?.showInsightsCTA ? -1 : 0}
+                style={{ position: 'relative', minWidth: 180, pointerEvents: insights?.showInsightsCTA ? 'none' : 'auto' }}
+                aria-disabled={!!insights?.showInsightsCTA}
+              >
+                View Insights
+              </button>
+              {insights?.showInsightsCTA && (
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm rounded-lg z-20"
+                  style={{ minWidth: 180 }}
+                >
+                  <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg shadow text-center w-full">
+                    <div className="font-bold mb-1">Insights Locked</div>
+                    <div className="mb-2">Upgrade your plan to unlock profile insights and analytics.</div>
+                    <button
+                      className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-2 rounded-full shadow transition mt-2"
+                      onClick={() => navigate('/plans')}
+                    >
+                      {ctaLabel}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
+      {/* Insert Time vs Views Graph if insights are unlocked */}
+      {profile?.viewsGraphEnabled && (!insights?.showInsightsCTA && insights && Array.isArray(insights.viewCountsOverTime) && insights.viewCountsOverTime.length > 0) && (
+        (() => {
+          // Calculate weekly views (last 7 days)
+          const now = new Date();
+          const weekAgo = new Date(now);
+          weekAgo.setDate(now.getDate() - 6); // 7 days including today
+          const weeklyViews = insights.viewCountsOverTime
+            .filter(v => {
+              const d = new Date(v.date);
+              // Only include dates from weekAgo (inclusive) to now (inclusive)
+              return d >= weekAgo && d <= now;
+            })
+            .reduce((sum, v) => sum + (v.count || 0), 0);
+          const weekStart = insights.viewCountsOverTime.find(v => {
+            const d = new Date(v.date);
+            return d >= weekAgo;
+          })?.date || insights.viewCountsOverTime[0]?.date;
+          const weekEnd = insights.viewCountsOverTime.slice(-1)[0]?.date;
+          return (
+            <div className="w-full max-w-md mt-8 mb-2 bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 flex flex-col items-center">
+              <div className="flex justify-between items-center w-full mb-2 text-xs text-gray-400">
+                <span>WEEKLY ACTIVITY</span>
+                <span>
+                  {weekStart} – {weekEnd}
+                </span>
+              </div>
+              <div className="flex items-center w-full">
+                <div className="mr-6">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{weeklyViews}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">Profile views</div>
+                </div>
+                <div className="flex-1 h-20">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={insights.viewCountsOverTime}>
+                      <Line type="monotone" dataKey="count" stroke="#A78BFA" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          );
+        })()
+      )}
+      {/* Render industry-wise views info card if present
+      {insights?.viewsByIndustry && (
+        <div className="w-full max-w-md mt-4 bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6">
+          <h3 className="text-lg font-bold mb-2">Industry-wise Views</h3>
+          <ul>
+            {Object.entries(insights.viewsByIndustry).map(([industry, count]) => (
+              <li key={industry} className="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+                <span>{industry}</span>
+                <span className="font-semibold">{count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )} */}
+
+      <div className="w-full max-w-md flex flex-col items-center mb-4">
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+          <span>QR Code Type:</span>
+          <select
+            value={qrType}
+            onChange={async e => {
+              const newType = e.target.value;
+              setQrType(newType);
+              localStorage.setItem('qrType', newType);
+              try {
+                await axios.put(`${API}/api/profile/${profileId}`, { qrType: newType });
+              } catch {}
+            }}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+          >
+            <option value="url">Profile URL</option>
+            <option value="vcard">Contact Card (vCard)</option>
+          </select>
+          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400" title="Contact Card QR works offline and lets people add you to contacts even without internet. Profile URL opens your online profile (needs internet)">
+            {qrType === 'vcard' ? 'Works offline for contact sharing!' : 'Opens your online profile.'}
+          </span>
+        </label>
+      </div>
+
       {/* Footer Branding */}
       <footer className="w-full flex flex-col items-center justify-center mt-10 mb-4">
         <div className="w-full flex flex-col items-center max-w-xs">
-          <div className="text-xl font-bold text-gray-700 dark:text-gray-300 tracking-tight">
-            comma<span className="opacity-70">Cards</span>
+         <div className="text-xl font-bold text-gray-700 dark:text-gray-200" style={{ fontFamily: 'Garet, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            COMMA PROFILE
           </div>
-          <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1 mb-2">
+          <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1" style={{ fontFamily: 'SpaceMono, monospace', fontSize: '0.8rem', letterSpacing: '0.15em' }}>
             CONTINUED RELATIONSHIPS
           </div>
         </div>
@@ -901,8 +1077,17 @@ export default function DashboardPage() {
       {showQR && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center">
-            <QRCode value={`${window.location.origin}/p/${profileSlug}`} size={120} fgColor={theme === 'dark' ? '#D4AF37' : '#000000'} bgColor="transparent" />
-            <p className="mt-2 text-xs text-gray-700 dark:text-gray-300">Scan to open profile</p>
+            <QRCode
+              value={qrType === 'vcard' ? vCard : `${window.location.origin}/p/${profileSlug}`}
+              size={120}
+              fgColor={theme === 'dark' ? '#D4AF37' : '#000000'}
+              bgColor="transparent"
+            />
+            <p className="mt-2 text-xs text-gray-700 dark:text-gray-300">
+              {qrType === 'vcard'
+                ? 'Scan to add contact (works offline)'
+                : 'Scan to open profile (needs internet)'}
+            </p>
             <button onClick={() => setShowQR(false)} className="mt-3 text-blue-500 dark:text-blue-400 hover:underline">
               Close
             </button>

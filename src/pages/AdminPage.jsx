@@ -118,12 +118,11 @@ export default function AdminPage() {
 
   const toggleStatus = async (id) => {
     try {
-      await axios.put(`${API}/api/admin-bs1978av1123ss2402/toggle-status/${id}`);
+      const res = await axios.patch(`${API}/api/admin-bs1978av1123ss2402/profile/${id}/toggle-status`);
+      const updatedProfile = res.data.profile || res.data;
       setProfiles(prev =>
         prev.map(p =>
-          p._id === id
-            ? { ...p, status: p.status === 'active' ? 'pending_activation' : 'active' }
-            : p
+          p._id === id ? { ...p, ...updatedProfile } : p
         )
       );
     } catch (err) {
@@ -406,8 +405,8 @@ export default function AdminPage() {
                 </td>
 
                 <td className="px-4 py-2 text-center">
-                  <span className={`font-semibold ${p.status === 'active' ? 'text-green-600 dark:text-green-400' : 'text-yellow-500 dark:text-yellow-300'}`}>
-                    {p.status === 'active' ? 'Active' : 'Pending'}
+                  <span className={`font-semibold ${p.computedStatus === 'active' ? 'text-green-600 dark:text-green-400' : 'text-yellow-500 dark:text-yellow-300'}`}>
+                    {p.computedStatus ? p.computedStatus.charAt(0).toUpperCase() + p.computedStatus.slice(1) : (p.status === 'active' ? 'Active' : 'Pending')}
                   </span>
                 </td>
                 <td className="px-4 py-2 text-center">
@@ -434,11 +433,11 @@ export default function AdminPage() {
                   </button>
                 </td>
                 <td className="px-4 py-2 flex justify-center gap-3">
-                  <button onClick={() => toggleStatus(p._id)} title={p.status === 'active' ? 'Deactivate' : 'Activate'}>
-                    {p.status === 'active' ? (
-                      <FaToggleOff size={20} className="text-yellow-400" />
-                    ) : (
+                  <button onClick={() => toggleStatus(p._id)} title={p.active ? 'Deactivate' : 'Activate'}>
+                    {p.active ? (
                       <FaToggleOn size={20} className="text-green-500 dark:text-green-400" />
+                    ) : (
+                      <FaToggleOff size={20} className="text-yellow-400" />
                     )}
                   </button>
                   <button onClick={() => deleteProfile(p._id)} title="Delete">

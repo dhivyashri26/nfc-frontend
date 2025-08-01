@@ -12,7 +12,9 @@ import HomePage from './pages/HomePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardInsightsPage from './pages/DashboardInsightsPage';
 import AdminProfilePage from './pages/AdminProfilePage';
-import keepServerAwake from './utils/keepServerAwake';
+//import keepServerAwake from './utils/keepServerAwake';
+import PlansPage from './pages/PlansPage';
+import FAQPage from './pages/FAQPage';
 
 // Theme context for dark/light mode
 const ThemeContext = createContext();
@@ -48,7 +50,6 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
-  keepServerAwake();
 
   return (
     <ThemeProvider>
@@ -63,6 +64,9 @@ export default function App() {
           <Route path="/p/:activationCode" element={<PublicProfilePage />} />
           <Route path="/" element={<HomePage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* FAQ page */}
+          <Route path="/faq" element={<FAQPage />} />
 
           {/* Protected customer dashboard */}
           <Route
@@ -85,6 +89,9 @@ export default function App() {
           {/* Admin profile details page */}
           <Route path="/admin-7x9q2v4k1b8z6r3p0/profile/:id" element={<AdminProfilePage />} />
 
+          {/* Plans page */}
+          <Route path="/plans" element={<PlansPage />} />
+
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
@@ -92,7 +99,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-
-// Added industry selection option to the profile.
-// This will allow users to specify their industry during profile setup or editing.
-// ...existing code...
