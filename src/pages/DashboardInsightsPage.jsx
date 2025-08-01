@@ -7,6 +7,18 @@ import { LineChart, Line, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tool
 import MetricCard from '../components/MetricCard';
 import { FaUsers, FaUser, FaExchangeAlt, FaDownload, FaLink, FaStar, FaArrowLeft } from 'react-icons/fa';
 
+// Returns { plan, daysLeft, expiresAt, trialDays } if on trial, else null
+function getTrialInfo(subscription, planObj) {
+  if (!subscription || subscription.cycle !== 'trial' || !subscription.activatedAt || !subscription.expiresAt) return null;
+  const plan = subscription.plan;
+  const trialDays = planObj?.trialDays || 0;
+  const now = new Date();
+  const expiresAt = new Date(subscription.expiresAt);
+  const daysLeft = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
+  if (daysLeft > 0) return { plan, daysLeft, expiresAt: subscription.expiresAt, trialDays };
+  return null;
+}
+
 export default function DashboardInsightsPage() {
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -211,6 +223,15 @@ export default function DashboardInsightsPage() {
           <h2 className="flex-1 text-center text-white font-semibold">Profile Insights</h2>
         </header>
 
+        {/* Free Trial Info */}
+        {getTrialInfo(insights.subscription, insights.plan) && (
+          <div className="px-6 pt-5">
+            <span className="px-3 py-1 rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 text-yellow-900 text-xs font-bold shadow border border-yellow-400">
+              {getTrialInfo(insights.subscription, insights.plan).plan} Free Trial: {getTrialInfo(insights.subscription, insights.plan).daysLeft} day{getTrialInfo(insights.subscription, insights.plan).daysLeft !== 1 ? 's' : ''} left (ends {new Date(getTrialInfo(insights.subscription, insights.plan).expiresAt).toLocaleDateString()})
+            </span>
+            <div className="text-xs text-gray-400 mt-1">Trial duration: {getTrialInfo(insights.subscription, insights.plan).trialDays} days</div>
+          </div>
+        )}
         {/* Subscription */}
         {insights.subscription && (
           <section className="px-6 py-5">

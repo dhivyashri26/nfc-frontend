@@ -1,21 +1,3 @@
-// Hardcoded Free plan
-const FREE_PLAN = {
-  id: 'free',
-  name: 'Free',
-  prices: { monthly: 0, quarterly: 0 },
-  tagline: 'Get started with the basics',
-  benefits: [
-    {
-      title: 'Basic Digital Profile',
-      detail: 'Showcase your name, organization, phone, email, and location.'
-    },
-    {
-      title: 'Insights CTA',
-      detail: 'Upgrade to unlock profile advanced profiling, analytics, insights.'
-    }
-  ],
-  ctaLabel: 'Start Free'
-};
 // src/pages/PlansPage.jsx
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -33,23 +15,38 @@ export default function PlansPage() {
   const navigate = useNavigate();
   const deckRef = useRef(null);
 
-useEffect(() => {
-  const url = `${import.meta.env.VITE_API_BASE_URL}/api/plans`;
-  fetch(url)
-    .then(res =>
-      res.ok
-        ? res.json()
-        : Promise.reject(new Error(`Server responded ${res.status}: ${res.statusText}`))
-    )
-    .then(data => {
-      if (!Array.isArray(data)) {
-        throw new Error('Invalid plans format received from server');
-      }
-      setPlans([FREE_PLAN, ...data]);
-    })
-    .catch(err => setError(err))
-    .finally(() => setLoading(false));
-}, []);
+  useEffect(() => {
+    const url = `${import.meta.env.VITE_API_BASE_URL}/api/plans`; 
+    fetch(url)
+      .then(res =>
+        res.ok
+          ? res.json()
+          : Promise.reject(new Error(`Server responded ${res.status}: ${res.statusText}`))
+      )
+      .then(data => {
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid plans format received from server');
+        }
+        // Inject default free plan if not present
+        const hasFree = data.some(p => p.id === 'free');
+        const freePlan = {
+          id: 'free',
+          name: 'Free',
+          prices: { monthly: 0, quarterly: 0 },
+          tagline: 'Basic digital card',
+          benefits: [
+            { title: 'Basic Comma Profile' },
+            { title: 'Share your contact instantly' },
+            { title: 'Limited analytics' },
+            { title: 'Unlimited scans' },
+            { title: 'No credit card required' }
+          ]
+        };
+        setPlans(hasFree ? data : [freePlan, ...data]);
+      })
+      .catch(err => setError(err))
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     function handleOutside(e) {
@@ -72,11 +69,10 @@ useEffect(() => {
   const hideTooltip = () => setTooltip(null);
 
   const onSubscribe = planId => {
-    if (planId === 'free') {
-      setSelected('free');
-    } else {
-      navigate('/', { state: { scrollToContact: true, selectedPlan: planId } });
-    }
+    // WhatsApp business chat link (replace with your business number)
+    const phone = '18653862733'; // e.g. 91 for India, then number
+    const url = `https://wa.me/${phone}?text=Hi,%20I%20am%20interested%20in%20the%20${encodeURIComponent(planId)}%20plan%20on%20Comma%20Cards.`;
+    window.open(url, '_blank');
   };
 
   if (loading) {
@@ -112,16 +108,31 @@ useEffect(() => {
             <button
               key={cycle}
               onClick={() => setBillingCycle(cycle)}
-              className={`px-5 py-2 rounded-full font-medium text-sm transition ${
+              className={`relative px-5 py-2 rounded-full font-medium text-sm transition ${
                 billingCycle === cycle
                   ? 'bg-[#D4AF37] text-black shadow-lg'
                   : 'text-gray-300 hover:bg-white/20'
               }`}
             >
-              {cycle === 'monthly' ? 'Monthly' : 'Quarterly (free 1m)'}
+              {cycle === 'monthly' ? 'Monthly' : 'Quarterly (gifting you 1 free month)'}
+              {cycle === 'quarterly' && (
+                <span className="absolute -top-3 right-2 animate-fire-bounce text-2xl select-none" style={{ pointerEvents: 'none' }}>
+                  🔥
+                </span>
+              )}
             </button>
           ))}
         </div>
+        <style>{`
+          @keyframes fire-bounce {
+            0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 6px #ff9800cc); }
+            30% { transform: translateY(-6px) scale(1.12); filter: drop-shadow(0 0 16px #ff9800ee); }
+            60% { transform: translateY(-2px) scale(1.05); filter: drop-shadow(0 0 10px #ff9800cc); }
+          }
+          .animate-fire-bounce {
+            animation: fire-bounce 1.2s infinite cubic-bezier(.6,-0.28,.74,.05);
+          }
+        `}</style>
       </div>
 
       {/* Deck */}
@@ -136,6 +147,13 @@ useEffect(() => {
           const y = isSel ? -60 : 0;
           const rot = isSel ? 0 : offsets[i] / 20;
           const z = isSel ? 1000 : i;
+
+          // Show POPULAR badge for Corporate plan
+          const isCorporate = plan.id && plan.id.toLowerCase() === 'corporate';
+          // Show free trial CTA for Novice and Corporate
+          const isNovice = plan.id && plan.id.toLowerCase() === 'novice';
+          const showTrialCTA = isNovice || isCorporate;
+          const trialDays = plan.trialDays || (isNovice ? 14 : isCorporate ? 7 : 0);
 
           return (
             <motion.div
@@ -158,7 +176,7 @@ useEffect(() => {
                          border border-white/10 rounded-2xl p-6
                          flex flex-col shadow-2xl cursor-pointer overflow-visible will-change-transform"
             >
-              {plan.featured && (
+              {isCorporate && (
                 <div className="absolute top-3 right-3 bg-gradient-to-br from-yellow-400 to-yellow-500 text-black px-3 py-1 rounded-tl-2xl rounded-br-2xl text-xs font-bold">
                   POPULAR
                 </div>
@@ -172,6 +190,8 @@ useEffect(() => {
                 {plan.name}
               </h3>
 
+
+
               <p className="mt-2 text-3xl font-semibold text-white">
                 ₹{plan.prices[billingCycle]}
                 <span className="text-sm text-gray-400">
@@ -179,10 +199,25 @@ useEffect(() => {
                 </span>
               </p>
 
-              {plan.tagline && (
-                <p className="text-gray-400 text-sm italic mb-4">
-                  {plan.tagline}
-                </p>
+              {/* Tagline and daily cost/price info together, only show tagline once */}
+              {(plan.tagline || (plan.costPerDay && plan.prices && plan.prices.monthly > 0)) && (
+                <div className="flex flex-col gap-1 mb-4 mt-1">
+                  {plan.tagline && (
+                    <p className="text-gray-400 text-sm italic mb-0">
+                      {plan.tagline}
+                    </p>
+                  )}
+                  {plan.costPerDay && plan.prices && plan.prices.monthly > 0 && (
+                    <div className="text-xs text-gray-400 flex flex-col gap-0.5">
+                      <span className="bg-black/30 rounded px-2 py-0.5">
+                        Monthly: ₹{plan.costPerDay.monthly?.toFixed(2)} per day &nbsp;|&nbsp; ₹{(plan.costPerDay.monthly * 30).toFixed(0)} /mo
+                      </span>
+                      <span className="bg-black/30 rounded px-2 py-0.5">
+                        Quarterly: ₹{plan.costPerDay.quarterly?.toFixed(2)} per day &nbsp;|&nbsp; ₹{(plan.costPerDay.quarterly * 90).toFixed(0)} /3 mo
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
 
               <ul className="flex-1 overflow-y-auto space-y-2 text-sm text-gray-300 pr-2">
@@ -210,9 +245,17 @@ useEffect(() => {
                 ))}
               </ul>
 
+              {showTrialCTA && (
+                <div className="mt-4 mb-1">
+                  <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 text-yellow-900 text-xs font-bold shadow border border-yellow-400">
+                    {trialDays} Day Free Trial
+                  </span>
+                </div>
+              )}
+
               <button
                 onClick={() => onSubscribe(plan.id)}
-                className={`mt-4 py-2 rounded-full font-semibold transition-all ${
+                className={`mt-2 py-2 rounded-full font-semibold transition-all ${
                   plan.id === 'free'
                     ? 'bg-white text-black hover:bg-gray-100'
                     : 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-black hover:shadow-lg'

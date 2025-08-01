@@ -25,6 +25,7 @@ import { useTheme } from '../App';
 import { useSpring, animated } from '@react-spring/web';
 import ImageCropper from '../components/ImageCropper';
 import { industries } from '../utils/constants';
+import '../comma-branding.css';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 // Reusable ContactRow
@@ -56,20 +57,12 @@ const ContactRow = memo(function ContactRow({ icon, label, value, href, onCopy }
   );
 });
 
-
 // Subscription-based field restrictions
 const PLAN_FIELDS = {
-  Free: ['name', 'phone', 'ownerEmail', 'linkedin'],
   Novice: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin'],
   Corporate: ['name', 'title', 'subtitle', 'tags', 'phone', 'linkedin', 'industry', 'website', 'calendlyLink'],
   Elite: [] // All fields available
 };
-
-function isFieldAllowed(field, plan) {
-  if (!plan || plan === 'Elite') return true;
-  if (PLAN_FIELDS[plan]) return PLAN_FIELDS[plan].includes(field);
-  return false;
-}
 
 const ALL_FIELDS = [
   { key: 'name', label: 'Name', type: 'text', placeholder: 'e.g. Jane Doe' },
@@ -119,6 +112,10 @@ const CardContent = memo(function CardContent({
   
   return (
     <>
+      {/* COMMA Branding for Novice profiles */}
+      {plan === 'Novice' && (
+        <div className="comma-branding">COMMA,</div>
+      )}
       {/* Theme toggle */}
       <div className="absolute top-3 right-3 z-10">
         <button
@@ -411,11 +408,11 @@ const CardContent = memo(function CardContent({
         <div className="px-6 pt-4 pb-6 space-y-4 text-left">
           {/* Render fields based on subscription plan */}
           {ALL_FIELDS.map(({ key, label, type, placeholder }) => {
-          // Normalize plan string to match PLAN_FIELDS keys
-          const plan = profile?.subscription?.plan || 'Free';
-          const isElite = plan === 'Elite';
-          const isAllowed = isElite || isFieldAllowed(key, plan);
-          if (isAllowed) {
+            // Normalize plan string to match PLAN_FIELDS keys
+            const normalizedPlan = (profile?.subscription?.plan && PLAN_FIELDS[profile.subscription.plan]) ? profile.subscription.plan : 'Novice';
+            const isElite = profile?.subscription?.plan === 'Elite';
+            const isAllowed = isElite || PLAN_FIELDS[normalizedPlan]?.includes(key);
+            if (isAllowed) {
               // Render normal input field
               if (type === 'select') {
                 return (
@@ -636,29 +633,14 @@ export default function DashboardPage() {
   // Save edits
   const saveProfile = useCallback(async () => {
     try {
-      const plan = profile?.subscription?.plan || 'Free';
-      let allowedForm = { ...form };
-      if (plan === 'Free') {
-        // Only send allowed fields for Free plan
-        allowedForm = Object.keys(form)
-          .filter(key => PLAN_FIELDS.Free.includes(key))
-          .reduce((obj, key) => {
-            obj[key] = form[key];
-            return obj;
-          }, {});
-        // Social links: only linkedin
-        if (form.socialLinks && form.socialLinks.linkedin) {
-          allowedForm.socialLinks = { linkedin: form.socialLinks.linkedin };
-        }
-      }
-      await axios.put(`${API}/api/profile/${profileId}`, allowedForm);
+      await axios.put(`${API}/api/profile/${profileId}`, form);
       setProfile(form);
       setEditMode(false);
       setMessage('Profile saved!');
     } catch {
       setMessage('Save failed');
     }
-  }, [API, profileId, form, profile]);
+  }, [API, profileId, form]);
 
   // Upload files
   const uploadFile = useCallback(
@@ -821,6 +803,14 @@ export default function DashboardPage() {
     );
   }
 
+  // --- Plan Awareness & Feature Gating ---
+  const subscriptionPlan = profile?.subscription?.plan || 'Novice';
+  // --- CTA Label Logic (simple example, can be improved with plan info) ---
+  const ctaLabel = subscriptionPlan === 'free' ? 'Upgrade to unlock insights' : `Upgrade your plan`;
+  // --- Contact Exchange Limits ---
+  const contactExchangeLimit = insights?.contactExchangeLimit ?? (subscriptionPlan === 'free' ? 0 : 'Unlimited');
+  const contactExchangeRemaining = insights?.contactExchangeRemaining ?? (subscriptionPlan === 'free' ? 0 : 'Unlimited');
+
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-white via-gray-100 to-gray-200 dark:from-black dark:via-gray-900 dark:to-gray-800">
       {/* UI Style Toggle */}
@@ -938,40 +928,100 @@ export default function DashboardPage() {
           </div>
         </animated.div>
       </div>
-      {/* Insights Button Below Card */}
+      {/* Insights CTA or Insights Panel */}
       <div className="w-full max-w-md flex flex-col items-center">
         {insightsEnabled && (
-          <button
-            className="mt-6 mb-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition shadow"
-            onClick={() => navigate('/dashboard/insights')}
-          >
-            View Insights
-          </button>
+          <div className="relative w-full flex flex-col items-center mt-6 mb-2">
+            <div className="relative w-full flex justify-center">
+              <button
+                className={`px-8 py-2 rounded-lg font-semibold transition shadow bg-blue-600 text-white hover:bg-blue-700 z-10 ${insights?.showInsightsCTA ? 'opacity-60 cursor-not-allowed' : ''}`}
+                onClick={async (e) => {
+                  if (insights?.showInsightsCTA) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                  }
+                  try {
+                    const res = await axios.get(`${API}/api/profile/${profileId}/insights`);
+                    setInsights(res.data);
+                    if (!res.data?.showInsightsCTA) {
+                      navigate('/dashboard/insights');
+                    }
+                  } catch {
+                    // Optionally show error
+                  }
+                }}
+                disabled={!!insights?.showInsightsCTA}
+                tabIndex={insights?.showInsightsCTA ? -1 : 0}
+                style={{ position: 'relative', minWidth: 180, pointerEvents: insights?.showInsightsCTA ? 'none' : 'auto' }}
+                aria-disabled={!!insights?.showInsightsCTA}
+              >
+                View Insights
+              </button>
+              {insights?.showInsightsCTA && (
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm rounded-lg z-20"
+                  style={{ minWidth: 180 }}
+                >
+                  <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg shadow text-center w-full">
+                    <div className="font-bold mb-1">Insights Locked</div>
+                    <div className="mb-2">Upgrade your plan to unlock profile insights and analytics.</div>
+                    <button
+                      className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-2 rounded-full shadow transition mt-2"
+                      onClick={() => navigate('/plans')}
+                    >
+                      {ctaLabel}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
-      {/* Insert Time vs Views Graph Below Card */}
-      {insightsEnabled && insights && Array.isArray(insights.viewCountsOverTime) && insights.viewCountsOverTime.length > 0 && (
-        <div className="w-full max-w-md mt-8 mb-2 bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 flex flex-col items-center">
-          <div className="flex justify-between items-center w-full mb-2 text-xs text-gray-400">
-            <span>WEEKLY ACTIVITY</span>
-            <span>
-              {insights.viewCountsOverTime?.[0]?.date} – {insights.viewCountsOverTime?.slice(-1)[0]?.date}
-            </span>
-          </div>
-          <div className="flex items-center w-full">
-            <div className="mr-6">
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{insights.totalViews}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-300">Profile views</div>
+      {/* Insert Time vs Views Graph if insights are unlocked */}
+      {profile?.viewsGraphEnabled && (!insights?.showInsightsCTA && insights && Array.isArray(insights.viewCountsOverTime) && insights.viewCountsOverTime.length > 0) && (
+        (() => {
+          // Calculate weekly views (last 7 days)
+          const now = new Date();
+          const weekAgo = new Date(now);
+          weekAgo.setDate(now.getDate() - 6); // 7 days including today
+          const weeklyViews = insights.viewCountsOverTime
+            .filter(v => {
+              const d = new Date(v.date);
+              // Only include dates from weekAgo (inclusive) to now (inclusive)
+              return d >= weekAgo && d <= now;
+            })
+            .reduce((sum, v) => sum + (v.count || 0), 0);
+          const weekStart = insights.viewCountsOverTime.find(v => {
+            const d = new Date(v.date);
+            return d >= weekAgo;
+          })?.date || insights.viewCountsOverTime[0]?.date;
+          const weekEnd = insights.viewCountsOverTime.slice(-1)[0]?.date;
+          return (
+            <div className="w-full max-w-md mt-8 mb-2 bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 flex flex-col items-center">
+              <div className="flex justify-between items-center w-full mb-2 text-xs text-gray-400">
+                <span>WEEKLY ACTIVITY</span>
+                <span>
+                  {weekStart} – {weekEnd}
+                </span>
+              </div>
+              <div className="flex items-center w-full">
+                <div className="mr-6">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{weeklyViews}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">Profile views</div>
+                </div>
+                <div className="flex-1 h-20">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={insights.viewCountsOverTime}>
+                      <Line type="monotone" dataKey="count" stroke="#A78BFA" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
-            <div className="flex-1 h-20">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={insights.viewCountsOverTime}>
-                  <Line type="monotone" dataKey="count" stroke="#A78BFA" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
+          );
+        })()
       )}
       {/* Render industry-wise views info card if present
       {insights?.viewsByIndustry && (
@@ -1015,10 +1065,10 @@ export default function DashboardPage() {
       {/* Footer Branding */}
       <footer className="w-full flex flex-col items-center justify-center mt-10 mb-4">
         <div className="w-full flex flex-col items-center max-w-xs">
-          <div className="text-2xl font-extrabold text-gray-700 dark:text-gray-300 tracking-tight" style={{ fontFamily: 'Garet, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            COMMA CARDS
+         <div className="text-xl font-bold text-gray-700 dark:text-gray-200" style={{ fontFamily: 'Garet, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            COMMA PROFILE
           </div>
-          <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1 mb-2" style={{ fontFamily: 'SpaceMono, monospace', fontSize: '1rem', letterSpacing: '0.15em' }}>
+          <div className="text-xs uppercase text-gray-500 dark:text-gray-500 tracking-widest mt-1" style={{ fontFamily: 'SpaceMono, monospace', fontSize: '0.8rem', letterSpacing: '0.15em' }}>
             CONTINUED RELATIONSHIPS
           </div>
         </div>
